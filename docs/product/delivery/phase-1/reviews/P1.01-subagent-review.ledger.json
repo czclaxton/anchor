@@ -1,0 +1,38 @@
+{
+  "ticket": "P1.01",
+  "invocations": [
+    {
+      "runnerKind": "claude-cli",
+      "reviewedHeadSha": "bef57690e729d4086958da93f1b0f2a8fd091a98",
+      "outcome": "clean",
+      "completedAt": "2026-06-24T19:41:19.390Z",
+      "terminatedReason": "completed",
+      "rawOutput": "docs/product/delivery/phase-1/reviews/P1.01-subagent-review.report.md",
+      "filledPrompt": "docs/product/delivery/phase-1/reviews/P1.01-subagent-review.prompt.md",
+      "fallbackLevel": "preferred",
+      "schemaVersion": 1,
+      "primaryAgent": "claude",
+      "runnerSelfReport": null,
+      "fallbackFrom": null,
+      "findings": [],
+      "probedSurfaces": [],
+      "patches": []
+    },
+    {
+      "runnerKind": "operator-recorder",
+      "reviewedHeadSha": "bef57690e729d4086958da93f1b0f2a8fd091a98",
+      "outcome": "patched",
+      "completedAt": "2026-06-24T19:42:57.606Z",
+      "terminatedReason": "completed",
+      "findings": [],
+      "probedSurfaces": [],
+      "patches": [
+        "2eb2c2dc259dd47fad280f0d36cb342a0abf3090"
+      ],
+      "schemaVersion": 1,
+      "primaryAgent": "unknown",
+      "runnerSelfReport": null,
+      "fallbackFrom": null
+    }
+  ]
+}

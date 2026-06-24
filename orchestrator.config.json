@@ -1,0 +1,19 @@
+{
+    "defaultBranch": "main",
+    "planRoot": "docs",
+    "runtime": "bun",
+    "packageManager": "bun",
+    "ticketBoundaryMode": "gated",
+    "reviewPolicy": {
+        "subagentReview": "skip_doc_only",
+        "prReview": "disabled"
+    },
+    "prReviewAgents": [
+        {
+            "login": "coderabbitai",
+            "name": "coderabbit",
+            "resolveThreads": true
+        }
+    ],
+    "primaryAgent": "claude"
+}
