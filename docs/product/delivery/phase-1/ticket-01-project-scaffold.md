@@ -46,3 +46,8 @@ Why this path: Tailwind v4 via `@tailwindcss/vite` rather than `@astrojs/tailwin
 Alternative considered: `bunx create-astro` — rejected because it would overwrite the existing `package.json` (SoA deliver scripts) and `tsconfig.json`; manual setup gave full control over what was merged.
 Deferred: Vercel project link — requires interactive `vercel link`; code is deploy-ready but Vercel wiring is a manual step for the developer. `.prettierrc` added here but `.gitignore` `dist/` and `.vercel/` entries were already present from the initial commit.
 Contract note: none.
+
+Advisory observations (subagent review, no patches applied):
+- `tools/delivery/*.ts` is now excluded from TypeScript coverage — the new `"include": ["src", "*.mjs", "*.ts"]` in `tsconfig.json` omits `tools/`. The tools run fine via Bun at runtime but are no longer statically type-checked in CI. A future ticket should add a separate `tsconfig.tools.json` with Bun types if coverage over delivery tooling is desired.
+- `src/styles/global.css` is imported with a relative path (`../styles/global.css`) in `src/pages/index.astro`. Pages in subdirectories (e.g. `src/pages/subjects/lesson.astro`) will silently miss this import. T02/T03 should move the global CSS import into the base layout rather than individual pages.
+- Outcome bullet 3 ("Vercel project wired") and Green steps 5–6 ("Create Vercel project") are stale — Vercel wiring was deferred per Rationale. The Outcome and Green sections were written pre-implementation and were not updated post-implementation; the Rationale is the authoritative record of what was actually delivered.
