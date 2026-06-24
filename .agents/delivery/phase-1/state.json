@@ -46,14 +46,25 @@
       "type": "feat",
       "scope": "routing",
       "redPolicy": "skip",
-      "status": "verified",
+      "status": "done",
       "branch": "agents/p1-02-content-model-routing",
       "baseBranch": "agents/p1-01-project-scaffold",
       "worktreePath": "C:\\Repos\\anchor_p1_02",
       "handoffPath": "C:\\Repos\\anchor\\.agents\\delivery\\phase-1\\handoffs\\p1-02-handoff.md",
       "handoffGeneratedAt": "2026-06-24T19:54:35.733Z",
       "verifiedAt": "2026-06-24T20:11:42.444Z",
-      "verifyOutcome": "clean"
+      "verifyOutcome": "clean",
+      "subagentReviewOutcome": "clean",
+      "subagentReviewCompletedAt": "2026-06-24T20:21:31.754Z",
+      "subagentRunnerArtifactPath": "docs/product/delivery/phase-1/reviews/P1.02-subagent-review.ledger.json",
+      "subagentAdversarialPromptPath": "docs/product/delivery/phase-1/reviews/P1.02-subagent-review.prompt.md",
+      "subagentAdversarialPromptWrittenAt": "2026-06-24T20:17:38.862Z",
+      "prNumber": 2,
+      "prUrl": "https://github.com/czclaxton/anchor/pull/2",
+      "prOpenedAt": "2026-06-24T20:26:16.271Z",
+      "reviewTriageArtifactPath": "C:\\Repos\\anchor_p1_02\\docs\\product\\delivery\\phase-1\\reviews\\P1.02-pr-review.triage.json",
+      "reviewRecordedAt": "2026-06-24T20:26:27.777Z",
+      "reviewOutcome": "skipped"
     },
     {
       "id": "P1.03",
@@ -63,10 +74,12 @@
       "type": "feat",
       "scope": "shell",
       "redPolicy": "skip",
-      "status": "pending",
+      "status": "red_complete",
       "branch": "agents/p1-03-site-shell",
       "baseBranch": "agents/p1-02-content-model-routing",
-      "worktreePath": "C:\\Repos\\anchor_p1_03"
+      "worktreePath": "C:\\Repos\\anchor_p1_03",
+      "handoffPath": "C:\\Repos\\anchor\\.agents\\delivery\\phase-1\\handoffs\\p1-03-handoff.md",
+      "handoffGeneratedAt": "2026-06-24T20:33:54.916Z"
     },
     {
       "id": "P1.04",

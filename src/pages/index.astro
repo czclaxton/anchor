@@ -1,17 +1,35 @@
 ---
-import '../styles/global.css'
+import { getCollection } from 'astro:content'
+import type { CollectionEntry } from 'astro:content'
+import BaseLayout from '../layouts/BaseLayout.astro'
+
+const lessons: CollectionEntry<'lessons'>[] = await getCollection('lessons')
+const sorted = lessons.sort((a, b) => a.data.order - b.data.order)
+
+function formatSubject(slug: string) {
+  return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
 ---
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Anchor</title>
-  </head>
-  <body>
-    <main class="p-8">
-      <h1 class="text-4xl font-bold">Anchor</h1>
-      <p class="mt-4 text-lg text-gray-600">A personal knowledge library.</p>
-    </main>
-  </body>
-</html>
+<BaseLayout title="Anchor">
+  <div class="mx-auto max-w-3xl px-6 py-12">
+    <h1 class="mb-8 text-3xl font-bold">Latest Lessons</h1>
+    <ul class="space-y-4">
+      {
+        sorted.map((lesson) => (
+          <li>
+            <a
+              href={`/${lesson.slug}`}
+              class="block rounded-lg border border-gray-200 p-4 hover:border-blue-400 hover:bg-blue-50"
+            >
+              <p class="mb-1 text-xs font-medium uppercase tracking-wide text-blue-600">
+                {formatSubject(lesson.data.subject)}
+              </p>
+              <p class="text-lg font-semibold">{lesson.data.title}</p>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</BaseLayout>
