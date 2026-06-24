@@ -2,13 +2,10 @@
 import { getCollection } from 'astro:content'
 import type { CollectionEntry } from 'astro:content'
 import BaseLayout from '../layouts/BaseLayout.astro'
+import { formatSlug } from '../lib/format'
 
 const lessons: CollectionEntry<'lessons'>[] = await getCollection('lessons')
 const sorted = lessons.sort((a, b) => a.data.order - b.data.order)
-
-function formatSubject(slug: string) {
-  return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
 ---
 
 <BaseLayout title="Anchor">
@@ -23,7 +20,7 @@ function formatSubject(slug: string) {
               class="block rounded-lg border border-gray-200 p-4 hover:border-blue-400 hover:bg-blue-50"
             >
               <p class="mb-1 text-xs font-medium uppercase tracking-wide text-blue-600">
-                {formatSubject(lesson.data.subject)}
+                {formatSlug(lesson.data.subject)}
               </p>
               <p class="text-lg font-semibold">{lesson.data.title}</p>
             </a>

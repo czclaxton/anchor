@@ -3,6 +3,7 @@ import { getCollection } from 'astro:content'
 import type { CollectionEntry } from 'astro:content'
 import BaseLayout from '../../layouts/BaseLayout.astro'
 import Breadcrumb from '../../components/Breadcrumb.astro'
+import { formatSlug } from '../../lib/format'
 
 export async function getStaticPaths() {
   const entries: CollectionEntry<'lessons'>[] = await getCollection('lessons')
@@ -16,11 +17,7 @@ const subjectLessons = allLessons
   .filter((l) => l.data.subject === subject)
   .sort((a, b) => a.data.order - b.data.order)
 
-function formatSubject(slug: string) {
-  return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-const displayName = formatSubject(subject)
+const displayName = formatSlug(subject)
 
 const breadcrumbs = [{ label: 'Home', href: '/' }, { label: displayName }]
 ---
@@ -40,7 +37,7 @@ const breadcrumbs = [{ label: 'Home', href: '/' }, { label: displayName }]
               <p class="text-lg font-semibold">{lesson.data.title}</p>
               {lesson.data.unit && (
                 <p class="mt-1 text-sm text-gray-500">
-                  {formatSubject(lesson.data.unit)}
+                  {formatSlug(lesson.data.unit)}
                 </p>
               )}
             </a>

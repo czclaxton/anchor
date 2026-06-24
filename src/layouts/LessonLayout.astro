@@ -3,6 +3,7 @@ import { getCollection } from 'astro:content'
 import type { CollectionEntry } from 'astro:content'
 import BaseLayout from './BaseLayout.astro'
 import Breadcrumb from '../components/Breadcrumb.astro'
+import { formatSlug } from '../lib/format'
 
 interface Props {
   entry: CollectionEntry<'lessons'>
@@ -17,20 +18,18 @@ allLessons.sort((a, b) => a.data.order - b.data.order)
 const currentIndex = allLessons.findIndex((l) => l.slug === entry.slug)
 const prev = currentIndex > 0 ? allLessons[currentIndex - 1] : null
 const next =
-  currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1] : null
+  currentIndex >= 0 && currentIndex < allLessons.length - 1
+    ? allLessons[currentIndex + 1]
+    : null
 
 function lessonHref(lesson: CollectionEntry<'lessons'>) {
   return `/${lesson.slug}`
 }
 
-function formatLabel(slug: string) {
-  return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
 const breadcrumbs = [
   { label: 'Home', href: '/' },
-  { label: formatLabel(subject), href: `/${subject}` },
-  ...(unit ? [{ label: formatLabel(unit), href: `/${subject}` }] : []),
+  { label: formatSlug(subject), href: `/${subject}` },
+  ...(unit ? [{ label: formatSlug(unit), href: `/${subject}` }] : []),
   { label: title },
 ]
 ---
@@ -41,7 +40,7 @@ const breadcrumbs = [
 
     <header class="mb-10">
       <p class="text-sm font-medium uppercase tracking-wide text-blue-600">
-        {formatLabel(subject)}
+        {formatSlug(subject)}
       </p>
       <h1 class="mt-1 text-4xl font-bold">{title}</h1>
     </header>
