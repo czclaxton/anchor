@@ -1,17 +1,35 @@
 {
   "name": "anchor",
-  "module": "index.ts",
   "type": "module",
   "private": true,
   "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "format": "prettier --write .",
+    "verify": "astro check --minimumSeverity error",
+    "verify:quiet": "astro check --minimumSeverity error",
+    "ci:quiet": "astro check --minimumSeverity error && astro build",
     "sync": "bash .son-of-anton/scripts/soa-sync.sh",
     "deliver": "bun run .son-of-anton/scripts/deliver.ts",
     "closeout-stack": "bun run .son-of-anton/scripts/closeout-stack.ts"
   },
-  "devDependencies": {
-    "@types/bun": "latest"
+  "dependencies": {
+    "@astrojs/mdx": "^4.3.0",
+    "@astrojs/react": "^4.2.0",
+    "astro": "^5.9.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwindcss": "^4.1.0",
+    "@tailwindcss/vite": "^4.1.0"
   },
-  "peerDependencies": {
-    "typescript": "^5"
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@types/bun": "latest",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "prettier": "^3.5.3",
+    "prettier-plugin-astro": "^0.14.0",
+    "typescript": "^5.8.3"
   }
 }
