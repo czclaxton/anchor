@@ -19,9 +19,12 @@ const sorted = lessons.sort((a, b) => a.data.order - b.data.order)
               href={`/${lesson.slug}`}
               class="block rounded-lg border border-gray-200 p-4 hover:border-blue-400 hover:bg-blue-50"
             >
-              <p class="mb-1 text-xs font-medium uppercase tracking-wide text-blue-600">
+              <a
+                href={`/${lesson.data.subject}`}
+                class="mb-1 text-xs font-medium uppercase tracking-wide text-blue-600 hover:underline"
+              >
                 {formatSlug(lesson.data.subject)}
-              </p>
+              </a>
               <p class="text-lg font-semibold">{lesson.data.title}</p>
             </a>
           </li>
