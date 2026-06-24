@@ -48,4 +48,4 @@ Red first: skipped — route correctness is verified by build + preview navigati
 Why this path: Astro content collections give type-safe frontmatter validation at build time, which catches content errors before they reach production.
 Alternative considered: flat file structure with no collections — rejected; loses build-time validation and makes querying lessons for the home page harder.
 Deferred: actual lesson content — stub MDX files only in this ticket.
-Contract note: none.
+Contract note: Astro 5 places legacy `type: 'content'` collections in `DataEntryMap` (not `ContentEntryMap`) in generated types, which causes `getCollection('lessons')` to return `any[]` under strict TypeScript. Workaround: explicitly type the result as `Array<CollectionEntry<'lessons'>>` in `getStaticPaths`. This is type-safe — the annotation matches the actual runtime values — and should be revisited if Astro resolves the inference issue.

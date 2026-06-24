@@ -1,0 +1,77 @@
+---
+import '../styles/global.css'
+
+interface Props {
+  title: string
+  subject: string
+}
+
+const { title, subject } = Astro.props
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} — Anchor</title>
+  </head>
+  <body class="max-w-3xl mx-auto px-6 py-12">
+    <header class="mb-10">
+      <p class="text-sm font-medium uppercase tracking-wide text-blue-600">
+        {subject}
+      </p>
+      <h1 class="mt-1 text-4xl font-bold">{title}</h1>
+    </header>
+
+    <section class="mb-8">
+      <h2 class="mb-2 text-xl font-semibold">Hook</h2>
+      <slot name="hook"
+        ><p class="italic text-gray-500">[Hook placeholder]</p></slot
+      >
+    </section>
+
+    <section class="mb-8">
+      <h2 class="mb-2 text-xl font-semibold">Analogy</h2>
+      <slot name="analogy"
+        ><p class="italic text-gray-500">[Analogy placeholder]</p></slot
+      >
+    </section>
+
+    <div class="mb-8">
+      <slot name="image" />
+    </div>
+
+    <section class="mb-8">
+      <h2 class="mb-2 text-xl font-semibold">Explanation</h2>
+      <slot name="explanation"
+        ><p class="italic text-gray-500">[Explanation placeholder]</p></slot
+      >
+    </section>
+
+    <div class="mb-8">
+      <slot name="editor" />
+    </div>
+
+    <div class="mb-8">
+      <slot name="interactive" />
+    </div>
+
+    <section class="mb-8">
+      <h2 class="mb-2 text-xl font-semibold">Summary</h2>
+      <slot name="summary"
+        ><p class="italic text-gray-500">[Summary placeholder]</p></slot
+      >
+    </section>
+
+    <div class="mb-8">
+      <slot name="anchored-button">
+        <button
+          type="button"
+          class="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white"
+        >
+          Anchored!
+        </button>
+      </slot>
+    </div>
+  </body>
+</html>
