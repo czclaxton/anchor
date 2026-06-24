@@ -14,18 +14,18 @@ const sorted = lessons.sort((a, b) => a.data.order - b.data.order)
     <ul class="space-y-4">
       {
         sorted.map((lesson) => (
-          <li>
+          <li class="rounded-lg border border-gray-200 p-4 hover:border-blue-400 hover:bg-blue-50">
+            <a
+              href={`/${lesson.data.subject}`}
+              class="mb-1 block text-xs font-medium uppercase tracking-wide text-blue-600 hover:underline"
+            >
+              {formatSlug(lesson.data.subject)}
+            </a>
             <a
               href={`/${lesson.slug}`}
-              class="block rounded-lg border border-gray-200 p-4 hover:border-blue-400 hover:bg-blue-50"
+              class="block text-lg font-semibold hover:text-blue-700"
             >
-              <a
-                href={`/${lesson.data.subject}`}
-                class="mb-1 text-xs font-medium uppercase tracking-wide text-blue-600 hover:underline"
-              >
-                {formatSlug(lesson.data.subject)}
-              </a>
-              <p class="text-lg font-semibold">{lesson.data.title}</p>
+              {lesson.data.title}
             </a>
           </li>
         ))
