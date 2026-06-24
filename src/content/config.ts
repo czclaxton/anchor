@@ -5,7 +5,7 @@ const lessons = defineCollection({
   schema: z.object({
     title: z.string(),
     subject: z.string(),
-    unit: z.string().optional(),
+    unit: z.string().min(1).optional(),
     order: z.number(),
     analogy: z.string(),
     hook: z.string(),

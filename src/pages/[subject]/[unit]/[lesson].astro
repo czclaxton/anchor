@@ -7,7 +7,9 @@ export async function getStaticPaths() {
   const entries: Array<CollectionEntry<'lessons'>> =
     await getCollection('lessons')
   return entries
-    .filter((entry) => Boolean(entry.data.unit))
+    .filter(
+      (entry) => Boolean(entry.data.unit) && entry.slug.split('/').length === 3,
+    )
     .map((entry) => {
       const parts = entry.slug.split('/')
       return {
