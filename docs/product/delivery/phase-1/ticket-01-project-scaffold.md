@@ -42,7 +42,7 @@ Red: skip
 > Append here (do not edit above) when behaviour or trade-offs change during implementation.
 
 Red first: skipped — no testable user behaviour at scaffold stage.
-Why this path: minimal Astro template keeps the starting surface area small; integrations added explicitly so each one is intentional.
-Alternative considered: Next.js — rejected; Astro's island architecture is a better fit for a mostly-static content site with selective React/Phaser hydration.
-Deferred: Phaser.js — not installed here; added in the first interactive ticket that needs it based on design session outcome.
+Why this path: Tailwind v4 via `@tailwindcss/vite` rather than `@astrojs/tailwind` + v3 — v4 is the current standard and the Vite plugin approach requires no config file. Manual scaffold rather than `bunx create-astro` to preserve the existing SoA `package.json` scripts and `tsconfig.json` during merge.
+Alternative considered: `bunx create-astro` — rejected because it would overwrite the existing `package.json` (SoA deliver scripts) and `tsconfig.json`; manual setup gave full control over what was merged.
+Deferred: Vercel project link — requires interactive `vercel link`; code is deploy-ready but Vercel wiring is a manual step for the developer. `.prettierrc` added here but `.gitignore` `dist/` and `.vercel/` entries were already present from the initial commit.
 Contract note: none.
