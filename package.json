@@ -7,9 +7,10 @@
     "build": "astro build",
     "preview": "astro preview",
     "format": "prettier --write .",
+    "test": "vitest run",
     "verify": "astro check --minimumSeverity error",
     "verify:quiet": "astro check --minimumSeverity error",
-    "ci:quiet": "astro check --minimumSeverity error && astro build",
+    "ci:quiet": "astro check --minimumSeverity error && bun run test && astro build",
     "sync": "bash .son-of-anton/scripts/soa-sync.sh",
     "deliver": "bun run .son-of-anton/scripts/deliver.ts",
     "closeout-stack": "bun run .son-of-anton/scripts/closeout-stack.ts"
@@ -17,11 +18,16 @@
   "dependencies": {
     "@astrojs/mdx": "^4.3.0",
     "@astrojs/react": "^4.2.0",
+    "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/state": "^6.7.0",
+    "@codemirror/view": "^6.43.3",
+    "@tailwindcss/vite": "^4.1.0",
     "astro": "^5.9.0",
+    "codemirror": "^6.0.2",
+    "pyodide": "^314.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "tailwindcss": "^4.1.0",
-    "@tailwindcss/vite": "^4.1.0"
+    "tailwindcss": "^4.1.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
@@ -30,6 +36,7 @@
     "@types/react-dom": "^19.1.0",
     "prettier": "^3.5.3",
     "prettier-plugin-astro": "^0.14.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.9"
   }
 }
