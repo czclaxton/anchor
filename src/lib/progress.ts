@@ -4,10 +4,19 @@ function storageKey(subjectSlug: string): string {
   return `${KEY_PREFIX}${subjectSlug}`
 }
 
+function parseSlugArray(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 export function markComplete(lessonSlug: string, subjectSlug: string): void {
   const key = storageKey(subjectSlug)
   const existing = localStorage.getItem(key)
-  const slugs: string[] = existing ? (JSON.parse(existing) as string[]) : []
+  const slugs = existing ? parseSlugArray(existing) : []
   if (!slugs.includes(lessonSlug)) {
     slugs.push(lessonSlug)
     localStorage.setItem(key, JSON.stringify(slugs))
@@ -20,7 +29,7 @@ export function getProgress(
 ): { completed: number; total: number } {
   const key = storageKey(subjectSlug)
   const existing = localStorage.getItem(key)
-  const slugs: string[] = existing ? (JSON.parse(existing) as string[]) : []
+  const slugs = existing ? parseSlugArray(existing) : []
   return { completed: slugs.length, total: totalLessons }
 }
 
@@ -28,6 +37,5 @@ export function isComplete(lessonSlug: string, subjectSlug: string): boolean {
   const key = storageKey(subjectSlug)
   const existing = localStorage.getItem(key)
   if (!existing) return false
-  const slugs = JSON.parse(existing) as string[]
-  return slugs.includes(lessonSlug)
+  return parseSlugArray(existing).includes(lessonSlug)
 }

@@ -17,6 +17,7 @@ export default function AnchoredButton({ lessonSlug, subjectSlug }: Props) {
   function handleClick() {
     if (anchored) return
     markComplete(lessonSlug, subjectSlug)
+    window.dispatchEvent(new Event('anchor:progress-updated'))
     setDropping(true)
     setTimeout(() => {
       setDropping(false)

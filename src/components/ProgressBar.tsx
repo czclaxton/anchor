@@ -13,7 +13,10 @@ export default function ProgressBar({ subjectSlug, totalLessons }: Props) {
   })
 
   useEffect(() => {
-    setProgress(getProgress(subjectSlug, totalLessons))
+    const refresh = () => setProgress(getProgress(subjectSlug, totalLessons))
+    refresh()
+    window.addEventListener('anchor:progress-updated', refresh)
+    return () => window.removeEventListener('anchor:progress-updated', refresh)
   }, [subjectSlug, totalLessons])
 
   const pct =
