@@ -12,7 +12,14 @@ async function getPyodide(): Promise<PyodideInterface> {
   if (pyodideLoading) return pyodideLoading
   const p = (async () => {
     const { loadPyodide } = await import('pyodide')
-    pyodideInstance = await loadPyodide()
+    // In browsers, Vite's bundled path can't serve .wasm so we point to CDN.
+    // In Node.js (tests), let Pyodide auto-detect the local package path.
+    const isBrowser = typeof window !== 'undefined'
+    pyodideInstance = await loadPyodide(
+      isBrowser
+        ? { indexURL: 'https://cdn.jsdelivr.net/pyodide/v314.0.0/full/' }
+        : {},
+    )
     return pyodideInstance
   })()
   // Reset on failure so callers can retry after a transient network error.
