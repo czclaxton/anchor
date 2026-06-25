@@ -10,11 +10,16 @@ let pyodideLoading: Promise<PyodideInterface> | null = null
 async function getPyodide(): Promise<PyodideInterface> {
   if (pyodideInstance) return pyodideInstance
   if (pyodideLoading) return pyodideLoading
-  pyodideLoading = (async () => {
+  const p = (async () => {
     const { loadPyodide } = await import('pyodide')
     pyodideInstance = await loadPyodide()
     return pyodideInstance
   })()
+  // Reset on failure so callers can retry after a transient network error.
+  p.catch(() => {
+    pyodideLoading = null
+  })
+  pyodideLoading = p
   return pyodideLoading
 }
 
@@ -35,14 +40,20 @@ export async function runPython(
   if (onInput) {
     pyodide.globals.set('_onInput', (prompt: string) => onInput(prompt))
     await pyodide.runPythonAsync(`
-import builtins
+import builtins as _builtins_mod
+_original_input = _builtins_mod.input
 
 async def _async_input(prompt=''):
     return str(await _onInput(str(prompt)))
 
-builtins.input = _async_input
+_builtins_mod.input = _async_input
 `)
-    await pyodide.runPythonAsync(wrapWithAsyncInput(code))
+    try {
+      await pyodide.runPythonAsync(wrapWithAsyncInput(code))
+    } finally {
+      // Restore the original input() so subsequent calls without onInput work correctly.
+      await pyodide.runPythonAsync('_builtins_mod.input = _original_input')
+    }
   } else {
     await pyodide.runPythonAsync(code)
   }

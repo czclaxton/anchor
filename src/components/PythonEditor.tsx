@@ -15,6 +15,7 @@ interface InputState {
 export default function PythonEditor() {
   const editorContainerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
+  const cancelRef = useRef<((err: Error) => void) | null>(null)
   const [output, setOutput] = useState('')
   const [isRunning, setIsRunning] = useState(false)
   const [inputState, setInputState] = useState<InputState | null>(null)
@@ -37,6 +38,14 @@ export default function PythonEditor() {
     return () => view.destroy()
   }, [])
 
+  // Cancel any pending input() promise when the component unmounts so Pyodide is not left suspended.
+  useEffect(() => {
+    return () => {
+      cancelRef.current?.(new Error('PythonEditor unmounted'))
+      cancelRef.current = null
+    }
+  }, [])
+
   async function handleRun() {
     if (!viewRef.current || isRunning) return
     const code = viewRef.current.state.doc.toString()
@@ -44,12 +53,22 @@ export default function PythonEditor() {
     setIsRunning(true)
     try {
       const result = await runPython(code, (prompt) => {
-        return new Promise((resolve) => {
-          setInputState({ prompt, onSubmit: resolve })
+        return new Promise<string>((resolve, reject) => {
+          cancelRef.current = reject
+          setInputState({
+            prompt,
+            onSubmit: (value) => {
+              cancelRef.current = null
+              resolve(value)
+            },
+          })
         })
       })
       setOutput(result.stdout)
     } catch (err) {
+      if (err instanceof Error && err.message === 'PythonEditor unmounted') {
+        return
+      }
       setOutput(`Error: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setIsRunning(false)
