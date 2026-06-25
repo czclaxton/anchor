@@ -3,6 +3,8 @@ import { getCollection } from 'astro:content'
 import type { CollectionEntry } from 'astro:content'
 import BaseLayout from './BaseLayout.astro'
 import Breadcrumb from '../components/Breadcrumb.astro'
+import AnchoredButton from '../components/AnchoredButton'
+import ProgressBar from '../components/ProgressBar'
 import { formatSlug } from '../lib/format'
 
 interface Props {
@@ -14,6 +16,9 @@ const { title, subject, unit } = entry.data
 
 const allLessons: CollectionEntry<'lessons'>[] = await getCollection('lessons')
 allLessons.sort((a, b) => a.data.order - b.data.order)
+
+const subjectLessons = allLessons.filter((l) => l.data.subject === subject)
+const totalLessons = subjectLessons.length
 
 const currentIndex = allLessons.findIndex((l) => l.slug === entry.slug)
 const prev = currentIndex > 0 ? allLessons[currentIndex - 1] : null
@@ -37,6 +42,12 @@ const breadcrumbs = [
 <BaseLayout title={title}>
   <div class="mx-auto max-w-3xl px-6 py-12">
     <Breadcrumb items={breadcrumbs} />
+
+    <ProgressBar
+      client:only="react"
+      subjectSlug={subject}
+      totalLessons={totalLessons}
+    />
 
     <header class="mb-10">
       <p class="text-sm font-medium uppercase tracking-wide text-blue-600">
@@ -87,12 +98,11 @@ const breadcrumbs = [
 
     <div class="mb-8">
       <slot name="anchored-button">
-        <button
-          type="button"
-          class="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white"
-        >
-          Anchored!
-        </button>
+        <AnchoredButton
+          client:only="react"
+          lessonSlug={entry.slug}
+          subjectSlug={subject}
+        />
       </slot>
     </div>
 
