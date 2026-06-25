@@ -1,24 +1,46 @@
 ---
-import '../styles/global.css'
+import { getCollection } from 'astro:content'
+import type { CollectionEntry } from 'astro:content'
+import BaseLayout from './BaseLayout.astro'
+import Breadcrumb from '../components/Breadcrumb.astro'
+import { formatSlug } from '../lib/format'
 
 interface Props {
-  title: string
-  subject: string
+  entry: CollectionEntry<'lessons'>
 }
 
-const { title, subject } = Astro.props
+const { entry } = Astro.props
+const { title, subject, unit } = entry.data
+
+const allLessons: CollectionEntry<'lessons'>[] = await getCollection('lessons')
+allLessons.sort((a, b) => a.data.order - b.data.order)
+
+const currentIndex = allLessons.findIndex((l) => l.slug === entry.slug)
+const prev = currentIndex > 0 ? allLessons[currentIndex - 1] : null
+const next =
+  currentIndex >= 0 && currentIndex < allLessons.length - 1
+    ? allLessons[currentIndex + 1]
+    : null
+
+function lessonHref(lesson: CollectionEntry<'lessons'>) {
+  return `/${lesson.slug}`
+}
+
+const breadcrumbs = [
+  { label: 'Home', href: '/' },
+  { label: formatSlug(subject), href: `/${subject}` },
+  ...(unit ? [{ label: formatSlug(unit), href: `/${subject}` }] : []),
+  { label: title },
+]
 ---
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title} — Anchor</title>
-  </head>
-  <body class="max-w-3xl mx-auto px-6 py-12">
+<BaseLayout title={title}>
+  <div class="mx-auto max-w-3xl px-6 py-12">
+    <Breadcrumb items={breadcrumbs} />
+
     <header class="mb-10">
       <p class="text-sm font-medium uppercase tracking-wide text-blue-600">
-        {subject}
+        {formatSlug(subject)}
       </p>
       <h1 class="mt-1 text-4xl font-bold">{title}</h1>
     </header>
@@ -73,5 +95,34 @@ const { title, subject } = Astro.props
         </button>
       </slot>
     </div>
-  </body>
-</html>
+
+    <nav
+      class="mt-12 flex items-center justify-between border-t border-gray-200 pt-6 text-sm"
+    >
+      {
+        prev ? (
+          <a
+            href={lessonHref(prev)}
+            class="flex items-center gap-1 text-blue-600 hover:text-blue-800"
+          >
+            ← {prev.data.title}
+          </a>
+        ) : (
+          <span />
+        )
+      }
+      {
+        next ? (
+          <a
+            href={lessonHref(next)}
+            class="flex items-center gap-1 text-blue-600 hover:text-blue-800"
+          >
+            {next.data.title} →
+          </a>
+        ) : (
+          <span />
+        )
+      }
+    </nav>
+  </div>
+</BaseLayout>

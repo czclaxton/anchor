@@ -27,7 +27,7 @@ const { entry } = Astro.props
 const { Content } = await entry.render()
 ---
 
-<LessonLayout title={entry.data.title} subject={entry.data.subject}>
+<LessonLayout entry={entry}>
   <p slot="hook">{entry.data.hook}</p>
   <p slot="analogy">{entry.data.analogy}</p>
   <Fragment slot="explanation">

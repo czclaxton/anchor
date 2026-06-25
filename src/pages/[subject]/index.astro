@@ -1,0 +1,49 @@
+---
+import { getCollection } from 'astro:content'
+import type { CollectionEntry } from 'astro:content'
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import Breadcrumb from '../../components/Breadcrumb.astro'
+import { formatSlug } from '../../lib/format'
+
+export async function getStaticPaths() {
+  const entries: CollectionEntry<'lessons'>[] = await getCollection('lessons')
+  const subjects = [...new Set(entries.map((e) => e.data.subject))]
+  return subjects.map((subject) => ({ params: { subject } }))
+}
+
+const subject = Astro.params.subject as string
+const allLessons: CollectionEntry<'lessons'>[] = await getCollection('lessons')
+const subjectLessons = allLessons
+  .filter((l) => l.data.subject === subject)
+  .sort((a, b) => a.data.order - b.data.order)
+
+const displayName = formatSlug(subject)
+
+const breadcrumbs = [{ label: 'Home', href: '/' }, { label: displayName }]
+---
+
+<BaseLayout title={displayName}>
+  <div class="mx-auto max-w-3xl px-6 py-12">
+    <Breadcrumb items={breadcrumbs} />
+    <h1 class="mb-8 text-3xl font-bold">{displayName}</h1>
+    <ul class="space-y-4">
+      {
+        subjectLessons.map((lesson) => (
+          <li>
+            <a
+              href={`/${lesson.slug}`}
+              class="block rounded-lg border border-gray-200 p-4 hover:border-blue-400 hover:bg-blue-50"
+            >
+              <p class="text-lg font-semibold">{lesson.data.title}</p>
+              {lesson.data.unit && (
+                <p class="mt-1 text-sm text-gray-500">
+                  {formatSlug(lesson.data.unit)}
+                </p>
+              )}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</BaseLayout>

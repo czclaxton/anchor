@@ -1,17 +1,35 @@
 ---
-import '../styles/global.css'
+import { getCollection } from 'astro:content'
+import type { CollectionEntry } from 'astro:content'
+import BaseLayout from '../layouts/BaseLayout.astro'
+import { formatSlug } from '../lib/format'
+
+const lessons: CollectionEntry<'lessons'>[] = await getCollection('lessons')
+const sorted = lessons.sort((a, b) => a.data.order - b.data.order)
 ---
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Anchor</title>
-  </head>
-  <body>
-    <main class="p-8">
-      <h1 class="text-4xl font-bold">Anchor</h1>
-      <p class="mt-4 text-lg text-gray-600">A personal knowledge library.</p>
-    </main>
-  </body>
-</html>
+<BaseLayout title="Anchor">
+  <div class="mx-auto max-w-3xl px-6 py-12">
+    <h1 class="mb-8 text-3xl font-bold">Latest Lessons</h1>
+    <ul class="space-y-4">
+      {
+        sorted.map((lesson) => (
+          <li class="rounded-lg border border-gray-200 p-4 hover:border-blue-400 hover:bg-blue-50">
+            <a
+              href={`/${lesson.data.subject}`}
+              class="mb-1 block text-xs font-medium uppercase tracking-wide text-blue-600 hover:underline"
+            >
+              {formatSlug(lesson.data.subject)}
+            </a>
+            <a
+              href={`/${lesson.slug}`}
+              class="block text-lg font-semibold hover:text-blue-700"
+            >
+              {lesson.data.title}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</BaseLayout>
