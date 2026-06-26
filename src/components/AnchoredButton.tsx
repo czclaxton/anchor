@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { isComplete, markComplete } from '../lib/progress'
+import { isComplete, markComplete, markIncomplete } from '../lib/progress'
 
 interface Props {
   lessonSlug: string
@@ -15,7 +15,12 @@ export default function AnchoredButton({ lessonSlug, subjectSlug }: Props) {
   }, [lessonSlug, subjectSlug])
 
   function handleClick() {
-    if (anchored) return
+    if (anchored) {
+      markIncomplete(lessonSlug, subjectSlug)
+      window.dispatchEvent(new Event('anchor:progress-updated'))
+      setAnchored(false)
+      return
+    }
     markComplete(lessonSlug, subjectSlug)
     window.dispatchEvent(new Event('anchor:progress-updated'))
     setDropping(true)
@@ -29,18 +34,16 @@ export default function AnchoredButton({ lessonSlug, subjectSlug }: Props) {
     <button
       type="button"
       onClick={handleClick}
-      disabled={anchored}
       className={[
         'inline-flex items-center gap-2 rounded-lg px-6 py-3 font-semibold text-white transition-all duration-300',
         anchored
-          ? 'cursor-default bg-green-600'
+          ? 'cursor-pointer bg-green-600 hover:bg-green-700 active:scale-95'
           : 'cursor-pointer bg-blue-600 hover:bg-blue-700 active:scale-95',
-        dropping ? 'animate-anchor-drop' : '',
       ]
         .filter(Boolean)
         .join(' ')}
     >
-      <span className={dropping ? 'animate-bounce' : ''}>⚓</span>
+      <span className={dropping ? 'animate-anchor-drop' : ''}>⚓</span>
       {anchored ? 'Anchored!' : 'Mark as Anchored!'}
     </button>
   )

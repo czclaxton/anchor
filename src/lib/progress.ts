@@ -33,6 +33,14 @@ export function getProgress(
   return { completed: slugs.length, total: totalLessons }
 }
 
+export function markIncomplete(lessonSlug: string, subjectSlug: string): void {
+  const key = storageKey(subjectSlug)
+  const existing = localStorage.getItem(key)
+  const slugs = existing ? parseSlugArray(existing) : []
+  const filtered = slugs.filter((s) => s !== lessonSlug)
+  localStorage.setItem(key, JSON.stringify(filtered))
+}
+
 export function isComplete(lessonSlug: string, subjectSlug: string): boolean {
   const key = storageKey(subjectSlug)
   const existing = localStorage.getItem(key)
