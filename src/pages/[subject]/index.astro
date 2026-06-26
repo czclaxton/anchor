@@ -3,6 +3,7 @@ import { getCollection } from 'astro:content'
 import type { CollectionEntry } from 'astro:content'
 import BaseLayout from '../../layouts/BaseLayout.astro'
 import Breadcrumb from '../../components/Breadcrumb.astro'
+import ProgressBar from '../../components/ProgressBar'
 import { formatSlug } from '../../lib/format'
 
 export async function getStaticPaths() {
@@ -25,8 +26,15 @@ const breadcrumbs = [{ label: 'Home', href: '/' }, { label: displayName }]
 <BaseLayout title={displayName}>
   <div class="mx-auto max-w-3xl px-6 py-12">
     <Breadcrumb items={breadcrumbs} />
-    <h1 class="mb-8 text-3xl font-bold">{displayName}</h1>
-    <ul class="space-y-4">
+    <h1 class="mb-4 text-3xl font-bold">{displayName}</h1>
+
+    <ProgressBar
+      client:only="react"
+      subjectSlug={subject}
+      totalLessons={subjectLessons.length}
+    />
+
+    <ul class="mt-4 space-y-4">
       {
         subjectLessons.map((lesson) => (
           <li>

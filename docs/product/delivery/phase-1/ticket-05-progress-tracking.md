@@ -50,8 +50,8 @@ Red: required
 
 > Append here (do not edit above) when behaviour or trade-offs change during implementation.
 
-Red first: [what test failed first]
-Why this path: [why this implementation was the smallest acceptable]
-Alternative considered: [one rejected alternative and why]
+Red first: "Cannot find module './progress'" — all 3 localStorage tests failed immediately since the utility module did not exist.
+Why this path: Plain TS utility functions (`markComplete`, `getProgress`, `isComplete`) keep the localStorage logic testable in Vitest without needing jsdom or React Testing Library. React components are thin client islands that call the utility on mount and click.
+Alternative considered: A single `useProgress` React hook — rejected because hooks require `@testing-library/react` to test, adding a devDependency and complicating the test setup. Plain utilities test cleanly under `environment: 'node'` with `vi.stubGlobal`.
 Deferred: Reset functionality — not exposed in V1. Full animation theming system — anchor motif only, no site-wide system.
-Contract note: none.
+Contract note: `entry.slug` (the full Astro content collection slug) is used as the per-lesson unique identifier in localStorage. The subject slug namespaces the key as `anchor:progress:<subjectSlug>`.
