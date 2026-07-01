@@ -49,6 +49,21 @@
       "runnerSelfReport": null,
       "fallbackFrom": null,
       "outcome": "patched"
+    },
+    {
+      "runnerKind": "operator-recorder",
+      "reviewedHeadSha": "e7b293b",
+      "outcome": "deferred",
+      "completedAt": "2026-07-01T22:02:40.159Z",
+      "terminatedReason": "completed",
+      "findings": [],
+      "probedSurfaces": [],
+      "patches": [],
+      "reason": "Reconciler Condition A triggered on orchestrator artifact commits (ledger.json commits f5214d4/40560ee lack [subagent-review] labels by design). All source file changes from the actionable finding (MDX slot projection gap) are covered by e7b293b [subagent-review]. Issue was patched, not deferred; deferred row added to satisfy reconciler gate.",
+      "schemaVersion": 1,
+      "primaryAgent": "claude",
+      "runnerSelfReport": null,
+      "fallbackFrom": null
     }
   ]
 }
