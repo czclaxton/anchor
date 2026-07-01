@@ -69,3 +69,7 @@ Alternative considered: Labeled-box analogy (standard CS101 framing). Rejected b
 Deferred: I/O (input/output) was originally scoped alongside Variables but decoupled into a future lesson so Variables can pair with its own interactive (the isometric park scene, P1.07).
 
 Contract note: `variables-and-io.mdx` placeholder (created in P1.02) deleted and replaced with `variables.mdx`. Route changes from `/programming-fundamentals/unit-1/variables-and-io` to `/programming-fundamentals/unit-1/variables`.
+
+Python example dropped from intro page: The original ticket outcome listed "a simple Python example" for `what-is-a-program.mdx`. During the design session this was explicitly deferred — the chef/volunteer analogy works better as pure prose for a beginner's very first page, and the Variables lesson (which follows immediately) introduces Python syntax with real code. The `what-is-a-program.mdx` is intentionally code-free.
+
+Design session artifact: `.agents/delivery/phase-1/p1-06-design-session.md` — committed to this branch with the full locked design context.
