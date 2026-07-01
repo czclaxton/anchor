@@ -158,12 +158,25 @@
       "type": "feat",
       "scope": "lesson-1",
       "redPolicy": "skip",
-      "status": "red_complete",
+      "status": "subagent_review_complete",
       "branch": "agents/p1-06-lesson-1-content-what-is-a-program",
       "baseBranch": "agents/p1-05-progress-tracking",
       "worktreePath": "C:\\Repos\\anchor_p1_06",
       "handoffPath": "C:\\Repos\\anchor\\.agents\\delivery\\phase-1\\handoffs\\p1-06-handoff.md",
-      "handoffGeneratedAt": "2026-06-26T20:11:41.727Z"
+      "handoffGeneratedAt": "2026-06-26T20:11:41.727Z",
+      "verifiedAt": "2026-07-01T21:50:48.150Z",
+      "verifyOutcome": "clean",
+      "subagentReviewOutcome": "patched",
+      "subagentReviewCompletedAt": "2026-07-01T21:51:12.085Z",
+      "subagentReviewPatchCommits": [
+        {
+          "sha": "e7b293b",
+          "subject": "fix(lesson-1): frontmatter-based slot pattern, add summary field [subagent-review]"
+        }
+      ],
+      "subagentRunnerArtifactPath": "docs/product/delivery/phase-1/reviews/P1.06-subagent-review.ledger.json",
+      "subagentAdversarialPromptPath": "docs/product/delivery/phase-1/reviews/P1.06-subagent-review.prompt.md",
+      "subagentAdversarialPromptWrittenAt": "2026-07-01T21:50:59.067Z"
     },
     {
       "id": "P1.07",
