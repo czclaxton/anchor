@@ -18,6 +18,7 @@ Red: skip
 The approved design for this interactive was recorded in the T06 ticket Rationale during the Lesson 1 design session. Read that section before beginning implementation. Do not deviate from the approved design without a new developer discussion.
 
 Key decisions to confirm from T06 Rationale before building:
+
 - Tool: Phaser.js or React?
 - Mechanic: exact description of how the player interacts
 - Win condition: what does success look like?
@@ -52,10 +53,14 @@ Key decisions to confirm from T06 Rationale before building:
 
 > Append here (do not edit above) when behaviour or trade-offs change during implementation.
 
-**Design reference:** See T06 Rationale for approved design decisions.
+**Design reference:** Design locked in `.agents/delivery/phase-1/p1-06-design-session.md` — Variables interactive (Phaser.js park scene, 4 Python variables: season/weather/time_of_day/npc_count).
 
 Red first: skipped — interactive quality is human-reviewed and play-tested.
-Why this path: [filled after implementation]
-Alternative considered: [filled after implementation]
-Deferred: [filled after implementation]
-Contract note: Size is 5 points — interactive design and implementation with an unknown tool (decided in design session) warrants a larger estimate.
+
+Why this path: Phaser 4 (`phaser@4.2.0`) used for the scene. `client:only="react"` island prevents SSR. Phaser loaded via dynamic `import('phaser')` so the bundle is lazy-loaded only on the Variables lesson page. `runPythonExtractVars` added to `runPython.ts` to read Pyodide globals after user code runs. Scene factory pattern (`makeParkScene(P)`) extends `Phaser.Scene` after dynamic import resolves. Programmatic Graphics API used for all scene elements (sky, ground, trees, NPCs, weather), which loads instantly and doesn't require external assets.
+
+Alternative considered: Canvas 2D API (no Phaser) — rejected because the locked design specified Phaser.js. PixelLab pixel-art sprites — deferred; programmatic shapes communicate the concept clearly and the architecture supports replacing Graphics with sprites later.
+
+Deferred: True isometric (diamond tile) rendering — scene uses 2D side-view. PixelLab sprites for NPCs and trees. NPC pathfinding around obstacles.
+
+Contract note: Developer play-test required. Ticket closes only after developer explicitly approves the interactive.

@@ -158,7 +158,7 @@
       "type": "feat",
       "scope": "lesson-1",
       "redPolicy": "skip",
-      "status": "subagent_review_complete",
+      "status": "done",
       "branch": "agents/p1-06-lesson-1-content-what-is-a-program",
       "baseBranch": "agents/p1-05-progress-tracking",
       "worktreePath": "C:\\Repos\\anchor_p1_06",
@@ -176,7 +176,13 @@
       ],
       "subagentRunnerArtifactPath": "docs/product/delivery/phase-1/reviews/P1.06-subagent-review.ledger.json",
       "subagentAdversarialPromptPath": "docs/product/delivery/phase-1/reviews/P1.06-subagent-review.prompt.md",
-      "subagentAdversarialPromptWrittenAt": "2026-07-01T21:50:59.067Z"
+      "subagentAdversarialPromptWrittenAt": "2026-07-01T21:50:59.067Z",
+      "prNumber": 6,
+      "prUrl": "https://github.com/czclaxton/anchor/pull/6",
+      "prOpenedAt": "2026-07-01T22:26:14.082Z",
+      "reviewTriageArtifactPath": "C:\\Repos\\anchor_p1_06\\docs\\product\\delivery\\phase-1\\reviews\\P1.06-pr-review.triage.json",
+      "reviewRecordedAt": "2026-07-01T22:26:26.233Z",
+      "reviewOutcome": "skipped"
     },
     {
       "id": "P1.07",
@@ -186,7 +192,7 @@
       "type": "feat",
       "scope": "lesson-1",
       "redPolicy": "skip",
-      "status": "pending",
+      "status": "red_complete",
       "branch": "agents/p1-07-lesson-1-interactive-program-the-robot",
       "baseBranch": "agents/p1-06-lesson-1-content-what-is-a-program",
       "worktreePath": "C:\\Repos\\anchor_p1_07"
