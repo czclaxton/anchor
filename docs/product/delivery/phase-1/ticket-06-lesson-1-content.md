@@ -58,10 +58,18 @@ Once the developer approves answers to the above, write the approved design into
 
 > Append here (do not edit above) when behaviour or trade-offs change during implementation.
 
-**Design gate approval:** [Record approved design decisions here before writing begins]
+**Design gate approval:** Full design session completed and approved by developer. See `.agents/delivery/phase-1/p1-06-design-session.md` for full context.
 
 Red first: skipped — content quality is human-reviewed.
-Why this path: [filled after design session]
-Alternative considered: [filled after design session]
-Deferred: [filled after design session]
-Contract note: none.
+
+Why this path: Curriculum restructured during design gate. The original standalone "What is a Program?" lesson was repurposed as a brief intro page (`what-is-a-program.mdx`, already drafted in P1.05 handoff context). P1.06 became the first real lesson: Variables. The novel-placeholder analogy (author uses `hero_name` throughout a manuscript) was chosen because it captures propagation — the "change once, updates everywhere" insight — without requiring any code to explain it.
+
+Alternative considered: Labeled-box analogy (standard CS101 framing). Rejected because it explains storage but not propagation, which is the deeper insight worth teaching first.
+
+Deferred: I/O (input/output) was originally scoped alongside Variables but decoupled into a future lesson so Variables can pair with its own interactive (the isometric park scene, P1.07).
+
+Contract note: `variables-and-io.mdx` placeholder (created in P1.02) deleted and replaced with `variables.mdx`. Route changes from `/programming-fundamentals/unit-1/variables-and-io` to `/programming-fundamentals/unit-1/variables`.
+
+Python example dropped from intro page: The original ticket outcome listed "a simple Python example" for `what-is-a-program.mdx`. During the design session this was explicitly deferred — the chef/volunteer analogy works better as pure prose for a beginner's very first page, and the Variables lesson (which follows immediately) introduces Python syntax with real code. The `what-is-a-program.mdx` is intentionally code-free.
+
+Design session artifact: `.agents/delivery/phase-1/p1-06-design-session.md` — committed to this branch with the full locked design context.

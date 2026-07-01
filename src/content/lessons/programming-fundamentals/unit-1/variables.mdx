@@ -1,0 +1,49 @@
+---
+title: Variables
+subject: programming-fundamentals
+unit: unit-1
+order: 2
+hook: What if you wrote something once and it showed up everywhere it was needed — and updated everywhere the moment you changed it?
+analogy: An author uses a placeholder like `hero_name` throughout an entire manuscript instead of writing the actual name. Change the value once — every page updates automatically.
+summary: A variable is a named placeholder for a value. Set it once, use it everywhere. Change the value in one place and everything that references it updates automatically.
+---
+
+Picture an author working on a novel. She hasn't settled on her hero's name yet, so she types the placeholder `hero_name` everywhere in the manuscript — not "Alex," not "Jordan," just the placeholder. Every chapter, every scene, every line of dialogue.
+
+> _`hero_name` stepped into the alley and reached for the door._
+
+> _No one spoke. `hero_name` scanned the room._
+
+When the book is ready to print, the editor makes one change: set `hero_name` to `"Alex"`. Every single instance updates at once. Two thousand pages. One assignment.
+
+The author changes her mind a week later. Set `hero_name` to `"Jordan"`. Done. Two thousand pages update again — with no risk of missing a paragraph buried in chapter fourteen.
+
+A variable is a named placeholder. You set its value once, use its name everywhere, and when the value changes, every place that references it updates automatically.
+
+In Python, creating a variable looks like this:
+
+```python
+hero_name = "Jordan"
+```
+
+Read that left to right: you're giving the name `hero_name` the value `"Jordan"`. From this point forward, whenever you use `hero_name`, Python substitutes `"Jordan"` in its place.
+
+Change the assignment:
+
+```python
+hero_name = "Alex"
+```
+
+Now every reference to `hero_name` produces `"Alex"` instead. The name stays the same. The value is what changes.
+
+Variables can hold different kinds of values:
+
+```python
+season = "summer"      # text — called a string, always in quotes
+temperature = 87       # a whole number — called an integer
+is_raining = False     # true or false — called a boolean
+```
+
+The interactive below uses string variables to control a scene. Change any value and the scene updates everywhere that variable is referenced, all at once.
+
+{/* P1.07 Variables interactive — isometric park scene */}
