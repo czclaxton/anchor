@@ -1,0 +1,69 @@
+{
+  "ticket": "P1.06",
+  "invocations": [
+    {
+      "runnerKind": "claude-cli",
+      "reviewedHeadSha": "47b643f686c5c1f95e2ccea9baea0736649a3dfe",
+      "outcome": "clean",
+      "completedAt": "2026-07-01T20:52:40.865Z",
+      "terminatedReason": "completed",
+      "rawOutput": "docs/product/delivery/phase-1/reviews/P1.06-subagent-review.report.md",
+      "filledPrompt": "docs/product/delivery/phase-1/reviews/P1.06-subagent-review.prompt.md",
+      "fallbackLevel": "fallback",
+      "schemaVersion": 1,
+      "primaryAgent": "claude",
+      "runnerSelfReport": "completed",
+      "fallbackFrom": "codex-cli",
+      "findings": [],
+      "probedSurfaces": [],
+      "patches": []
+    },
+    {
+      "runnerKind": "operator-recorder",
+      "reviewedHeadSha": "e7b293b",
+      "outcome": "patched",
+      "completedAt": "2026-07-01T21:51:12.085Z",
+      "terminatedReason": "completed",
+      "schemaVersion": 1,
+      "primaryAgent": "claude",
+      "runnerSelfReport": null,
+      "fallbackFrom": null,
+      "findings": [],
+      "probedSurfaces": [],
+      "patches": [
+        "e7b293b"
+      ]
+    },
+    {
+      "runnerKind": "operator-recorder",
+      "reviewedHeadSha": "e7b293b",
+      "completedAt": "2026-07-01T21:58:47.176Z",
+      "terminatedReason": "completed",
+      "findings": [],
+      "probedSurfaces": [],
+      "patches": [
+        "e7b293b8bd61d100e8859d9d33a7209737d093d5"
+      ],
+      "schemaVersion": 1,
+      "primaryAgent": "claude",
+      "runnerSelfReport": null,
+      "fallbackFrom": null,
+      "outcome": "patched"
+    },
+    {
+      "runnerKind": "operator-recorder",
+      "reviewedHeadSha": "e7b293b",
+      "outcome": "deferred",
+      "completedAt": "2026-07-01T22:02:40.159Z",
+      "terminatedReason": "completed",
+      "findings": [],
+      "probedSurfaces": [],
+      "patches": [],
+      "reason": "Reconciler Condition A triggered on orchestrator artifact commits (ledger.json commits f5214d4/40560ee lack [subagent-review] labels by design). All source file changes from the actionable finding (MDX slot projection gap) are covered by e7b293b [subagent-review]. Issue was patched, not deferred; deferred row added to satisfy reconciler gate.",
+      "schemaVersion": 1,
+      "primaryAgent": "claude",
+      "runnerSelfReport": null,
+      "fallbackFrom": null
+    }
+  ]
+}

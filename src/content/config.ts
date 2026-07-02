@@ -9,6 +9,7 @@ const lessons = defineCollection({
     order: z.number(),
     analogy: z.string(),
     hook: z.string(),
+    summary: z.string(),
   }),
 })
 
