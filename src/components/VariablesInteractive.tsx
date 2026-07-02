@@ -94,11 +94,19 @@ function formatPythonError(msg: string): string {
     }
     return `"${name}" is not defined. If it's a text value, put it in quotes: "${name}"`
   }
-  if (msg.includes('SyntaxError') || msg.includes('invalid syntax')) {
+  if (
+    msg.includes('SyntaxError') ||
+    msg.includes('invalid syntax') ||
+    msg.includes('IndentationError') ||
+    msg.includes('TabError')
+  ) {
     return `Syntax error. Each line should look like:\n  variable = "value"  or  variable = 4`
   }
-  const firstLine = msg.split('\n').find((l) => l.trim())
-  return `Python error: ${firstLine ?? msg}`
+  const lines = msg.split('\n')
+  const errorLine = [...lines]
+    .reverse()
+    .find((l) => /^\w*Error:/.test(l.trim()))
+  return `Python error: ${errorLine?.trim() ?? lines.find((l) => l.trim()) ?? msg}`
 }
 
 function validateVars(vars: Record<string, unknown>): string | null {
@@ -132,6 +140,7 @@ function validateVars(vars: Record<string, unknown>): string | null {
 function makeParkScene(P: any) {
   return class ParkScene extends P.Scene {
     vars: SceneVars = { ...DEFAULT_VARS }
+    sceneReady = false
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     bg: any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -173,6 +182,7 @@ function makeParkScene(P: any) {
       this.drawTrees()
       this.updateOverlays()
       this.spawnNpcs(this.vars.npc_count)
+      this.sceneReady = true
     }
 
     drawBackground() {
@@ -522,7 +532,11 @@ export default function VariablesInteractive() {
       }
 
       const scene = gameRef.current?.scene?.getScene('Park')
-      scene?.updateVars(newVars)
+      if (!scene?.sceneReady) {
+        setError('Scene is still loading — try again in a moment.')
+        return
+      }
+      scene.updateVars(newVars)
     } finally {
       setIsRunning(false)
     }
