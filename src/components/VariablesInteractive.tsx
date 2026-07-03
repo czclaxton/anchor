@@ -18,7 +18,6 @@ interface SceneVars {
 
 const CANVAS_W = 640
 const CANVAS_H = 360
-const GROUND_Y = 225
 
 const DEFAULT_CODE = `season = "summer"
 weather = "sunny"
@@ -40,7 +39,7 @@ const DEFAULT_VARS: SceneVars = {
   npc_count: 4,
 }
 
-// ── Color palettes ────────────────────────────────────────────────────────────
+// ── Sky palette ───────────────────────────────────────────────────────────────
 
 const SKY_DAY: Record<string, number> = {
   sunny: 0x87ceeb,
@@ -49,37 +48,99 @@ const SKY_DAY: Record<string, number> = {
   windy: 0x9eb8cc,
 }
 
-const GROUND_COLORS: Record<string, number> = {
-  summer: 0x4a8c42,
-  fall: 0x7d6020,
-  winter: 0xdeeef2,
-  spring: 0x5eb838,
+const STAR_POSITIONS: [number, number][] = [
+  [55, 22],
+  [130, 55],
+  [220, 14],
+  [305, 42],
+  [405, 26],
+  [470, 62],
+  [570, 78],
+  [80, 88],
+  [175, 95],
+  [330, 80],
+]
+
+const CLOUD_POSITIONS: [number, number, number, number][] = [
+  [100, 52, 84, 36],
+  [162, 46, 52, 28],
+  [370, 62, 92, 42],
+  [432, 56, 56, 30],
+  [528, 42, 72, 32],
+]
+
+// ── Isometric grid + sprite assets ─────────────────────────────────────────────
+
+const groundKey = (season: string) => `ground-${season}`
+const treeKey = (season: string) => `tree-${season}`
+const npcKey = (season: string) => `npc-${season}`
+const NPC_RAIN_KEY = 'npc-rain'
+const BUILDING_KEY = 'building'
+
+const ASSET_KEYS = [
+  'ground-summer',
+  'ground-fall',
+  'ground-winter',
+  'ground-spring',
+  'tree-summer',
+  'tree-fall',
+  'tree-winter',
+  'tree-spring',
+  'building',
+  'npc-summer',
+  'npc-fall',
+  'npc-winter',
+  'npc-spring',
+  'npc-rain',
+]
+
+const GRID_SIZE = 6
+const TILE_W = 48
+const TILE_H_STEP = 12
+const ORIGIN_X = CANVAS_W / 2
+const ORIGIN_Y = 100
+
+const BUILDING_ANCHOR = { col: 1, row: 1 }
+const DOOR_CELL = { col: 1, row: 2 }
+const TREE_ANCHORS = [
+  { col: 4, row: 0 },
+  { col: 5, row: 3 },
+  { col: 0, row: 4 },
+]
+
+function isoToScreen(col: number, row: number): { x: number; y: number } {
+  return {
+    x: ORIGIN_X + (col - row) * (TILE_W / 2),
+    y: ORIGIN_Y + (col + row) * TILE_H_STEP,
+  }
 }
 
-const CANOPY_COLORS: Record<string, number | null> = {
-  summer: 0x2e8b57,
-  fall: 0xcc6600,
-  winter: null,
-  spring: 0x7cbf47,
+function isBuildingCell(col: number, row: number): boolean {
+  return col === BUILDING_ANCHOR.col && row === BUILDING_ANCHOR.row
 }
 
-const NPC_PALETTES: Record<string, number[]> = {
-  summer: [
-    0xffd700, 0xff6b35, 0xff1493, 0x00ced1, 0xadff2f, 0xff4500, 0x9400d3,
-    0x00ff7f,
-  ],
-  fall: [
-    0xcc6622, 0xaa4411, 0xbb7733, 0x885522, 0x996633, 0xaa5544, 0x774422,
-    0xbb6611,
-  ],
-  winter: [
-    0x4488bb, 0x336699, 0x557799, 0x2255aa, 0x3366bb, 0x4477aa, 0x5588cc,
-    0x2244aa,
-  ],
-  spring: [
-    0x88dd44, 0xcc88ff, 0xff99bb, 0x44aadd, 0x77cc55, 0xbb77ee, 0xff88aa,
-    0x33bbdd,
-  ],
+function randomFreeCell(): { col: number; row: number } {
+  let col: number
+  let row: number
+  do {
+    col = Math.floor(Math.random() * GRID_SIZE)
+    row = Math.floor(Math.random() * GRID_SIZE)
+  } while (isBuildingCell(col, row))
+  return { col, row }
+}
+
+type NpcMoveState = 'wandering' | 'entering' | 'inside' | 'exiting'
+
+interface Npc {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sprite: any
+  col: number
+  row: number
+  targetCol: number
+  targetRow: number
+  state: NpcMoveState
+  insideUntil: number
+  speed: number
 }
 
 // ── Error helpers ─────────────────────────────────────────────────────────────
@@ -144,25 +205,60 @@ function makeParkScene(P: any) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     bg: any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    treeLayer: any
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     weatherLayer: any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     nightOverlay: any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    npcs: any[] = []
+    groundTiles: any[][] = []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    treeSprites: any[] = []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    buildingSprite: any
+    npcs: Npc[] = []
     drops: Array<{ x: number; y: number }> = []
 
     constructor() {
       super({ key: 'Park' })
     }
 
+    preload() {
+      for (const key of ASSET_KEYS) {
+        this.load.image(key, `/sprites/variables/${key}.png`)
+      }
+    }
+
     create() {
       this.bg = this.add.graphics()
-      this.treeLayer = this.add.graphics()
-      this.treeLayer.setDepth(1)
+      this.bg.setDepth(-2000)
+
+      this.groundTiles = []
+      for (let row = 0; row < GRID_SIZE; row++) {
+        const rowTiles = []
+        for (let col = 0; col < GRID_SIZE; col++) {
+          const { x, y } = isoToScreen(col, row)
+          const tile = this.add.image(x, y, groundKey(this.vars.season))
+          tile.setOrigin(0.5, 0.25)
+          tile.setDepth(-1000)
+          rowTiles.push(tile)
+        }
+        this.groundTiles.push(rowTiles)
+      }
+
+      const bPos = isoToScreen(BUILDING_ANCHOR.col, BUILDING_ANCHOR.row)
+      this.buildingSprite = this.add.image(bPos.x, bPos.y, BUILDING_KEY)
+      this.buildingSprite.setOrigin(0.5, 0.85)
+      this.buildingSprite.setDepth(BUILDING_ANCHOR.col + BUILDING_ANCHOR.row)
+
+      this.treeSprites = TREE_ANCHORS.map(({ col, row }) => {
+        const { x, y } = isoToScreen(col, row)
+        const tree = this.add.image(x, y, treeKey(this.vars.season))
+        tree.setOrigin(0.5, 0.92)
+        tree.setDepth(col + row)
+        return tree
+      })
+
       this.weatherLayer = this.add.graphics()
-      this.weatherLayer.setDepth(9)
+      this.weatherLayer.setDepth(1000)
       this.nightOverlay = this.add.rectangle(
         CANVAS_W / 2,
         CANVAS_H / 2,
@@ -171,21 +267,22 @@ function makeParkScene(P: any) {
         0x000000,
         0,
       )
-      this.nightOverlay.setDepth(10)
+      this.nightOverlay.setDepth(1001)
 
       this.drops = Array.from({ length: 100 }, () => ({
         x: Math.random() * CANVAS_W,
         y: Math.random() * CANVAS_H,
       }))
 
-      this.drawBackground()
-      this.drawTrees()
-      this.updateOverlays()
+      this.npcs = []
       this.spawnNpcs(this.vars.npc_count)
+
+      this.drawSky()
+      this.updateOverlays()
       this.sceneReady = true
     }
 
-    drawBackground() {
+    drawSky() {
       this.bg.clear()
 
       const skyColor =
@@ -193,138 +290,25 @@ function makeParkScene(P: any) {
           ? 0x0d0d2b
           : (SKY_DAY[this.vars.weather] ?? 0x87ceeb)
       this.bg.fillStyle(skyColor)
-      this.bg.fillRect(0, 0, CANVAS_W, GROUND_Y)
+      this.bg.fillRect(0, 0, CANVAS_W, CANVAS_H)
 
       if (this.vars.time_of_day === 'night') {
-        // Moon
         this.bg.fillStyle(0xfff8dc)
         this.bg.fillCircle(540, 42, 22)
-        // Stars (fixed positions)
         this.bg.fillStyle(0xffffff)
-        for (const [sx, sy] of [
-          [55, 22],
-          [130, 55],
-          [220, 14],
-          [305, 42],
-          [405, 26],
-          [470, 62],
-          [570, 78],
-          [80, 88],
-          [175, 95],
-          [330, 80],
-        ]) {
+        for (const [sx, sy] of STAR_POSITIONS) {
           this.bg.fillRect(sx, sy, 2, 2)
         }
       } else if (this.vars.weather === 'sunny') {
-        // Sun with glow
         this.bg.fillStyle(0xfff4a0, 0.45)
         this.bg.fillCircle(560, 44, 42)
         this.bg.fillStyle(0xffd700)
         this.bg.fillCircle(560, 44, 30)
       } else {
-        // Clouds
         const cloudColor = this.vars.weather === 'stormy' ? 0x555555 : 0xcccccc
         this.bg.fillStyle(cloudColor, 0.9)
-        for (const [cx, cy, rw, rh] of [
-          [100, 52, 84, 36],
-          [162, 46, 52, 28],
-          [370, 62, 92, 42],
-          [432, 56, 56, 30],
-          [528, 42, 72, 32],
-        ] as [number, number, number, number][]) {
+        for (const [cx, cy, rw, rh] of CLOUD_POSITIONS) {
           this.bg.fillEllipse(cx, cy, rw, rh)
-        }
-      }
-
-      // Ground
-      const groundColor = GROUND_COLORS[this.vars.season] ?? 0x4a8c42
-      this.bg.fillStyle(groundColor)
-      this.bg.fillRect(0, GROUND_Y, CANVAS_W, CANVAS_H - GROUND_Y)
-
-      this.drawGroundDetails()
-    }
-
-    drawGroundDetails() {
-      if (this.vars.season === 'fall') {
-        const leafColors = [0xcc6600, 0xdd8800, 0xaa4411, 0xbb7700]
-        for (let i = 0; i < 30; i++) {
-          this.bg.fillStyle(leafColors[i % 4], 0.7)
-          this.bg.fillEllipse(
-            20 + ((i * 37) % 600),
-            GROUND_Y + 22 + ((i * 13) % 100),
-            8,
-            5,
-          )
-        }
-      } else if (this.vars.season === 'spring') {
-        const flowerColors = [0xff69b4, 0xffff00, 0xff6b35, 0xbb33ff]
-        for (let i = 0; i < 25; i++) {
-          this.bg.fillStyle(flowerColors[i % 4], 0.85)
-          this.bg.fillCircle(
-            30 + ((i * 45) % 580),
-            GROUND_Y + 20 + ((i * 17) % 100),
-            3,
-          )
-        }
-      } else if (this.vars.season === 'winter') {
-        this.bg.fillStyle(0xffffff, 0.55)
-        for (let i = 0; i < 8; i++) {
-          this.bg.fillEllipse(
-            40 + i * 80,
-            GROUND_Y + 16,
-            60 + ((i * 13) % 40),
-            20,
-          )
-        }
-      }
-    }
-
-    drawTrees() {
-      this.treeLayer.clear()
-      const trunkColor = 0x6b4226
-
-      for (const tx of [95, 320, 545]) {
-        this.treeLayer.fillStyle(trunkColor)
-        this.treeLayer.fillRect(tx - 8, GROUND_Y - 58, 16, 58)
-
-        const canopyColor = CANOPY_COLORS[this.vars.season]
-
-        if (this.vars.season === 'winter') {
-          this.treeLayer.lineStyle(2, trunkColor, 1)
-          this.treeLayer.lineBetween(tx, GROUND_Y - 58, tx - 30, GROUND_Y - 98)
-          this.treeLayer.lineBetween(tx, GROUND_Y - 58, tx + 30, GROUND_Y - 98)
-          this.treeLayer.lineBetween(
-            tx - 15,
-            GROUND_Y - 76,
-            tx - 24,
-            GROUND_Y - 104,
-          )
-          this.treeLayer.lineBetween(
-            tx + 15,
-            GROUND_Y - 76,
-            tx + 24,
-            GROUND_Y - 104,
-          )
-          // Snow patches on branches
-          this.treeLayer.fillStyle(0xeef5f7, 0.88)
-          this.treeLayer.fillEllipse(tx - 24, GROUND_Y - 100, 26, 9)
-          this.treeLayer.fillEllipse(tx + 24, GROUND_Y - 100, 26, 9)
-          this.treeLayer.fillEllipse(tx, GROUND_Y - 110, 18, 8)
-        } else if (canopyColor !== null) {
-          this.treeLayer.fillStyle(canopyColor)
-          this.treeLayer.fillCircle(tx, GROUND_Y - 80, 44)
-
-          if (this.vars.season === 'fall') {
-            this.treeLayer.fillStyle(0xdd8800, 0.7)
-            this.treeLayer.fillCircle(tx - 20, GROUND_Y - 88, 24)
-            this.treeLayer.fillStyle(0xee6600, 0.65)
-            this.treeLayer.fillCircle(tx + 14, GROUND_Y - 72, 19)
-          } else if (this.vars.season === 'spring') {
-            this.treeLayer.fillStyle(0xffb7c5, 0.72)
-            this.treeLayer.fillCircle(tx - 24, GROUND_Y - 94, 18)
-            this.treeLayer.fillCircle(tx + 18, GROUND_Y - 75, 15)
-            this.treeLayer.fillCircle(tx + 2, GROUND_Y - 62, 12)
-          }
         }
       }
     }
@@ -333,77 +317,111 @@ function makeParkScene(P: any) {
       this.nightOverlay.setAlpha(this.vars.time_of_day === 'night' ? 0.44 : 0)
     }
 
+    currentNpcTextureKey(): string {
+      const { weather, season } = this.vars
+      if (weather === 'rainy' || weather === 'stormy') return NPC_RAIN_KEY
+      return npcKey(season)
+    }
+
     spawnNpcs(n: number) {
-      const palette = NPC_PALETTES[this.vars.season] ?? NPC_PALETTES.summer
-      const isRainy =
-        this.vars.weather === 'rainy' || this.vars.weather === 'stormy'
-      const isWinter = this.vars.season === 'winter'
-
       for (let i = 0; i < n; i++) {
-        const spread = n > 1 ? (i / (n - 1)) * 520 : 260
-        const x = Math.max(
-          55,
-          Math.min(585, 60 + spread + (Math.random() - 0.5) * 50),
-        )
-        const y = 272 + (Math.random() - 0.5) * 10
-        const color = palette[i % palette.length]
+        const { col, row } = randomFreeCell()
+        const { x, y } = isoToScreen(col, row)
+        const sprite = this.add.image(x, y, this.currentNpcTextureKey())
+        sprite.setOrigin(0.5, 0.88)
+        sprite.setDepth(col + row + 0.5)
 
-        const body = this.add.ellipse(0, 0, 16, 26, color)
-        const head = this.add.circle(0, -20, 9, color)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const parts: any[] = [body, head]
-
-        if (isWinter) {
-          parts.push(this.add.rectangle(0, -29, 16, 8, 0x223366))
+        const npc: Npc = {
+          sprite,
+          col,
+          row,
+          targetCol: col,
+          targetRow: row,
+          state: 'wandering',
+          insideUntil: 0,
+          speed: 0.5 + Math.random() * 0.4,
         }
-
-        if (isRainy) {
-          const umb = this.add.graphics()
-          umb.fillStyle(0x4466aa, 0.88)
-          umb.fillEllipse(0, -37, 34, 13)
-          umb.lineStyle(2, 0x223355, 1)
-          umb.lineBetween(0, -30, 0, -20)
-          parts.push(umb)
-        }
-
-        const container = this.add.container(x, y, parts)
-        container.setDepth(5)
-
-        const dist = 55 + Math.random() * 90
-        const dir = Math.random() > 0.5 ? 1 : -1
-        const targetX = Math.max(50, Math.min(590, x + dir * dist))
-        this.tweens.add({
-          targets: container,
-          x: targetX,
-          duration: 2200 + Math.random() * 2800,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-          delay: Math.random() * 1200,
-        })
-
-        this.npcs.push(container)
+        this.pickNewWaypoint(npc)
+        this.npcs.push(npc)
       }
+    }
+
+    resizeNpcs(n: number) {
+      if (n > this.npcs.length) {
+        this.spawnNpcs(n - this.npcs.length)
+      } else if (n < this.npcs.length) {
+        const excess = this.npcs.splice(n)
+        for (const npc of excess) {
+          this.tweens.killTweensOf(npc.sprite)
+          npc.sprite.destroy()
+        }
+      }
+    }
+
+    updateNpcTextures() {
+      const key = this.currentNpcTextureKey()
+      for (const npc of this.npcs) npc.sprite.setTexture(key)
     }
 
     clearNpcs() {
       for (const npc of this.npcs) {
-        this.tweens.killTweensOf(npc)
-        npc.destroy()
+        this.tweens.killTweensOf(npc.sprite)
+        npc.sprite.destroy()
       }
       this.npcs = []
     }
 
-    updateVars(newVars: SceneVars) {
-      this.vars = { ...newVars }
-      this.drawBackground()
-      this.drawTrees()
-      this.updateOverlays()
-      this.clearNpcs()
-      this.spawnNpcs(newVars.npc_count)
+    pickNewWaypoint(npc: Npc) {
+      if (Math.random() < 0.15) {
+        npc.targetCol = DOOR_CELL.col
+        npc.targetRow = DOOR_CELL.row
+        return
+      }
+      let col: number
+      let row: number
+      do {
+        ;({ col, row } = randomFreeCell())
+      } while (Math.abs(col - npc.col) < 0.1 && Math.abs(row - npc.row) < 0.1)
+      npc.targetCol = col
+      npc.targetRow = row
     }
 
-    update() {
+    placeNpc(npc: Npc) {
+      const { x, y } = isoToScreen(npc.col, npc.row)
+      npc.sprite.setPosition(x, y)
+      npc.sprite.setDepth(npc.col + npc.row + 0.5)
+    }
+
+    updateVars(newVars: SceneVars) {
+      const prev = this.vars
+      this.vars = { ...newVars }
+
+      if (
+        prev.season !== newVars.season ||
+        prev.weather !== newVars.weather ||
+        prev.time_of_day !== newVars.time_of_day
+      ) {
+        this.drawSky()
+      }
+
+      if (prev.season !== newVars.season) {
+        for (const row of this.groundTiles) {
+          for (const tile of row) tile.setTexture(groundKey(newVars.season))
+        }
+        for (const tree of this.treeSprites) {
+          tree.setTexture(treeKey(newVars.season))
+        }
+      }
+
+      this.updateOverlays()
+      this.updateNpcTextures()
+
+      if (prev.npc_count !== newVars.npc_count) {
+        this.resizeNpcs(newVars.npc_count)
+      }
+    }
+
+    update(time: number, delta: number) {
       const { weather } = this.vars
       if (weather === 'rainy' || weather === 'stormy') {
         this.tickRain(weather === 'stormy')
@@ -411,6 +429,71 @@ function makeParkScene(P: any) {
         this.tickWind()
       } else {
         this.weatherLayer.clear()
+      }
+
+      for (const npc of this.npcs) {
+        this.updateNpc(npc, time, delta)
+      }
+    }
+
+    updateNpc(npc: Npc, time: number, delta: number) {
+      if (npc.state === 'entering') return
+
+      if (npc.state === 'inside') {
+        if (time >= npc.insideUntil) {
+          npc.col = DOOR_CELL.col
+          npc.row = DOOR_CELL.row
+          npc.state = 'exiting'
+          this.placeNpc(npc)
+          npc.sprite.setVisible(true)
+          npc.sprite.setAlpha(0)
+          npc.sprite.setScale(0.4)
+          this.tweens.add({
+            targets: npc.sprite,
+            alpha: 1,
+            scale: 1,
+            duration: 400,
+            onComplete: () => {
+              npc.state = 'wandering'
+            },
+          })
+          this.pickNewWaypoint(npc)
+        }
+        return
+      }
+
+      const dx = npc.targetCol - npc.col
+      const dy = npc.targetRow - npc.row
+      const dist = Math.hypot(dx, dy)
+      const step = (npc.speed * delta) / 1000
+
+      if (dist <= step || dist < 0.02) {
+        npc.col = npc.targetCol
+        npc.row = npc.targetRow
+        this.placeNpc(npc)
+
+        const atDoor = npc.col === DOOR_CELL.col && npc.row === DOOR_CELL.row
+        if (atDoor && npc.state === 'wandering' && Math.random() < 0.35) {
+          npc.state = 'entering'
+          this.tweens.add({
+            targets: npc.sprite,
+            alpha: 0,
+            scale: 0.4,
+            duration: 400,
+            onComplete: () => {
+              npc.sprite.setVisible(false)
+              npc.state = 'inside'
+              npc.insideUntil = time + 3000 + Math.random() * 4000
+            },
+          })
+        } else {
+          this.pickNewWaypoint(npc)
+        }
+      } else {
+        npc.col += (dx / dist) * step
+        npc.row += (dy / dist) * step
+        npc.sprite.setFlipX(dx < 0)
+        this.placeNpc(npc)
       }
     }
 
@@ -437,8 +520,8 @@ function makeParkScene(P: any) {
         const drop = this.drops[i]
         drop.x = (drop.x + 4.5) % (CANVAS_W + 30)
         drop.y += Math.sin(drop.x * 0.025 + i * 0.7) * 1.8
-        if (drop.y > GROUND_Y + 10) drop.y = 8 + Math.random() * (GROUND_Y - 20)
-        if (drop.y < 0) drop.y = GROUND_Y - 20
+        if (drop.y > CANVAS_H - 20) drop.y = 8 + Math.random() * (CANVAS_H - 40)
+        if (drop.y < 0) drop.y = CANVAS_H - 20
         this.weatherLayer.fillStyle(leafColors[i % 4], 0.82)
         this.weatherLayer.fillEllipse(drop.x, drop.y, 10, 5)
       }
