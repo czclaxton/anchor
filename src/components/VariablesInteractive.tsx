@@ -437,7 +437,7 @@ function makeParkScene(P: any) {
     }
 
     updateNpc(npc: Npc, time: number, delta: number) {
-      if (npc.state === 'entering') return
+      if (npc.state === 'entering' || npc.state === 'exiting') return
 
       if (npc.state === 'inside') {
         if (time >= npc.insideUntil) {
@@ -455,9 +455,9 @@ function makeParkScene(P: any) {
             duration: 400,
             onComplete: () => {
               npc.state = 'wandering'
+              this.pickNewWaypoint(npc)
             },
           })
-          this.pickNewWaypoint(npc)
         }
         return
       }
