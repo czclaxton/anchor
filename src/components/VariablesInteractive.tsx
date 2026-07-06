@@ -2,7 +2,7 @@ import { basicSetup } from 'codemirror'
 import { python } from '@codemirror/lang-python'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { preloadPyodide, runPythonExtractVars } from '../lib/runPython'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -31,6 +31,16 @@ const VALID = {
   weather: ['sunny', 'rainy', 'stormy', 'windy'],
   time_of_day: ['day', 'night'],
 }
+
+const NPC_COUNT_MIN = 1
+const NPC_COUNT_MAX = 8
+
+const LEGEND_ROWS: { name: string; values: string[] }[] = [
+  { name: 'season', values: VALID.season.map((s) => `"${s}"`) },
+  { name: 'weather', values: VALID.weather.map((s) => `"${s}"`) },
+  { name: 'time_of_day', values: VALID.time_of_day.map((s) => `"${s}"`) },
+  { name: 'npc_count', values: [`${NPC_COUNT_MIN}–${NPC_COUNT_MAX}`] },
+]
 
 const DEFAULT_VARS: SceneVars = {
   season: 'summer',
@@ -77,6 +87,21 @@ const npcKey = (season: string) => `npc-${season}`
 const NPC_RAIN_KEY = 'npc-rain'
 const BUILDING_KEY = 'building'
 
+const NPC_STATE_KEYS = [
+  'npc-summer',
+  'npc-fall',
+  'npc-winter',
+  'npc-spring',
+  NPC_RAIN_KEY,
+]
+const NPC_WALK_FRAME_COUNT = 6
+type NpcFacing = 'south' | 'north' | 'east'
+const NPC_FACINGS: NpcFacing[] = ['south', 'north', 'east']
+const npcWalkAnimKey = (stateKey: string, facing: NpcFacing) =>
+  `${stateKey}-walk-${facing}`
+const npcWalkFrameKey = (stateKey: string, facing: NpcFacing, frame: number) =>
+  `${stateKey}-walk-${facing}-${frame}`
+
 const ASSET_KEYS = [
   'ground-summer',
   'ground-fall',
@@ -87,11 +112,14 @@ const ASSET_KEYS = [
   'tree-winter',
   'tree-spring',
   'building',
-  'npc-summer',
-  'npc-fall',
-  'npc-winter',
-  'npc-spring',
-  'npc-rain',
+  ...NPC_STATE_KEYS,
+  ...NPC_STATE_KEYS.flatMap((stateKey) =>
+    NPC_FACINGS.flatMap((facing) =>
+      Array.from({ length: NPC_WALK_FRAME_COUNT }, (_, i) =>
+        npcWalkFrameKey(stateKey, facing, i),
+      ),
+    ),
+  ),
 ]
 
 const GRID_SIZE = 6
@@ -141,6 +169,21 @@ interface Npc {
   state: NpcMoveState
   insideUntil: number
   speed: number
+  facing: NpcFacing
+  facingFlipped: boolean
+}
+
+// Facing is decided from the on-screen movement vector (not raw col/row
+// delta) since the isometric projection makes a "straight" grid move look
+// diagonal on screen. West reuses the east animation, mirrored.
+function facingFromScreenDelta(
+  dxScreen: number,
+  dyScreen: number,
+): { facing: NpcFacing; flipped: boolean } {
+  if (Math.abs(dyScreen) >= Math.abs(dxScreen)) {
+    return { facing: dyScreen < 0 ? 'north' : 'south', flipped: false }
+  }
+  return { facing: 'east', flipped: dxScreen < 0 }
 }
 
 // ── Error helpers ─────────────────────────────────────────────────────────────
@@ -189,8 +232,8 @@ function validateVars(vars: Record<string, unknown>): string | null {
     return `"${time_of_day}" is not a valid time. Choose from: ${VALID.time_of_day.map((s) => `"${s}"`).join(', ')}`
 
   const n = Number(npc_count)
-  if (!Number.isInteger(n) || n < 1 || n > 8)
-    return `npc_count must be a whole number between 1 and 8 (got: ${npc_count})`
+  if (!Number.isInteger(n) || n < NPC_COUNT_MIN || n > NPC_COUNT_MAX)
+    return `npc_count must be a whole number between ${NPC_COUNT_MIN} and ${NPC_COUNT_MAX} (got: ${npc_count})`
 
   return null
 }
@@ -208,6 +251,16 @@ function makeParkScene(P: any) {
     weatherLayer: any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     nightOverlay: any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    nightSkyLayer: any
+    shootingStar: {
+      x: number
+      y: number
+      vx: number
+      vy: number
+      ttl: number
+    } | null = null
+    nextShootingStarAt = 0
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     groundTiles: any[][] = []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -257,6 +310,11 @@ function makeParkScene(P: any) {
         return tree
       })
 
+      this.nightSkyLayer = this.add.graphics()
+      this.nightSkyLayer.setDepth(-1999)
+      this.shootingStar = null
+      this.nextShootingStarAt = 3000 + Math.random() * 5000
+
       this.weatherLayer = this.add.graphics()
       this.weatherLayer.setDepth(1000)
       this.nightOverlay = this.add.rectangle(
@@ -273,6 +331,21 @@ function makeParkScene(P: any) {
         x: Math.random() * CANVAS_W,
         y: Math.random() * CANVAS_H,
       }))
+
+      for (const stateKey of NPC_STATE_KEYS) {
+        for (const facing of NPC_FACINGS) {
+          const animKey = npcWalkAnimKey(stateKey, facing)
+          if (this.anims.exists(animKey)) continue
+          this.anims.create({
+            key: animKey,
+            frames: Array.from({ length: NPC_WALK_FRAME_COUNT }, (_, i) => ({
+              key: npcWalkFrameKey(stateKey, facing, i),
+            })),
+            frameRate: 6,
+            repeat: -1,
+          })
+        }
+      }
 
       this.npcs = []
       this.spawnNpcs(this.vars.npc_count)
@@ -292,29 +365,94 @@ function makeParkScene(P: any) {
       this.bg.fillStyle(skyColor)
       this.bg.fillRect(0, 0, CANVAS_W, CANVAS_H)
 
-      if (this.vars.time_of_day === 'night') {
-        this.bg.fillStyle(0xfff8dc)
-        this.bg.fillCircle(540, 42, 22)
-        this.bg.fillStyle(0xffffff)
-        for (const [sx, sy] of STAR_POSITIONS) {
-          this.bg.fillRect(sx, sy, 2, 2)
-        }
-      } else if (this.vars.weather === 'sunny') {
-        this.bg.fillStyle(0xfff4a0, 0.45)
-        this.bg.fillCircle(560, 44, 42)
-        this.bg.fillStyle(0xffd700)
-        this.bg.fillCircle(560, 44, 30)
-      } else {
-        const cloudColor = this.vars.weather === 'stormy' ? 0x555555 : 0xcccccc
-        this.bg.fillStyle(cloudColor, 0.9)
-        for (const [cx, cy, rw, rh] of CLOUD_POSITIONS) {
-          this.bg.fillEllipse(cx, cy, rw, rh)
+      if (this.vars.time_of_day !== 'night') {
+        if (this.vars.weather === 'sunny') {
+          this.drawSun()
+        } else {
+          const cloudColor =
+            this.vars.weather === 'stormy' ? 0x555555 : 0xcccccc
+          this.bg.fillStyle(cloudColor, 0.9)
+          for (const [cx, cy, rw, rh] of CLOUD_POSITIONS) {
+            this.bg.fillEllipse(cx, cy, rw, rh)
+          }
         }
       }
     }
 
+    drawSun() {
+      const sx = 560
+      const sy = 44
+
+      this.bg.fillStyle(0xfff4a0, 0.22)
+      this.bg.fillCircle(sx, sy, 52)
+      this.bg.fillStyle(0xfff4a0, 0.4)
+      this.bg.fillCircle(sx, sy, 38)
+
+      this.bg.lineStyle(3, 0xffe066, 0.85)
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2
+        this.bg.lineBetween(
+          sx + Math.cos(angle) * 27,
+          sy + Math.sin(angle) * 27,
+          sx + Math.cos(angle) * 40,
+          sy + Math.sin(angle) * 40,
+        )
+      }
+
+      this.bg.fillStyle(0xffd700)
+      this.bg.fillCircle(sx, sy, 24)
+      this.bg.fillStyle(0xfff2b0, 0.85)
+      this.bg.fillCircle(sx - 6, sy - 6, 9)
+    }
+
     updateOverlays() {
       this.nightOverlay.setAlpha(this.vars.time_of_day === 'night' ? 0.44 : 0)
+      if (this.vars.time_of_day !== 'night') {
+        this.nightSkyLayer.clear()
+        this.shootingStar = null
+      }
+    }
+
+    tickNightSky(time: number, delta: number) {
+      this.nightSkyLayer.clear()
+
+      this.nightSkyLayer.fillStyle(0xfff8dc)
+      this.nightSkyLayer.fillCircle(540, 42, 22)
+
+      for (let i = 0; i < STAR_POSITIONS.length; i++) {
+        const [sx, sy] = STAR_POSITIONS[i]
+        const twinkle = 0.5 + 0.5 * Math.sin(time * 0.002 + i * 1.7)
+        this.nightSkyLayer.fillStyle(0xffffff, 0.4 + twinkle * 0.6)
+        const size = 1.5 + twinkle * 1.5
+        this.nightSkyLayer.fillRect(sx, sy, size, size)
+      }
+
+      if (this.shootingStar) {
+        const s = this.shootingStar
+        s.x += s.vx
+        s.y += s.vy
+        s.ttl -= delta
+        if (s.ttl <= 0) {
+          this.shootingStar = null
+        } else {
+          this.nightSkyLayer.lineStyle(2, 0xffffff, Math.max(0, s.ttl / 500))
+          this.nightSkyLayer.lineBetween(
+            s.x,
+            s.y,
+            s.x - s.vx * 4,
+            s.y - s.vy * 4,
+          )
+        }
+      } else if (time > this.nextShootingStarAt) {
+        this.shootingStar = {
+          x: 100 + Math.random() * 400,
+          y: 10 + Math.random() * 60,
+          vx: 6,
+          vy: 3,
+          ttl: 500,
+        }
+        this.nextShootingStarAt = time + 4000 + Math.random() * 8000
+      }
     }
 
     currentNpcTextureKey(): string {
@@ -327,9 +465,10 @@ function makeParkScene(P: any) {
       for (let i = 0; i < n; i++) {
         const { col, row } = randomFreeCell()
         const { x, y } = isoToScreen(col, row)
-        const sprite = this.add.image(x, y, this.currentNpcTextureKey())
+        const sprite = this.add.sprite(x, y, this.currentNpcTextureKey())
         sprite.setOrigin(0.5, 0.88)
         sprite.setDepth(col + row + 0.5)
+        sprite.play(npcWalkAnimKey(this.currentNpcTextureKey(), 'south'))
 
         const npc: Npc = {
           sprite,
@@ -340,6 +479,8 @@ function makeParkScene(P: any) {
           state: 'wandering',
           insideUntil: 0,
           speed: 0.5 + Math.random() * 0.4,
+          facing: 'south',
+          facingFlipped: false,
         }
         this.pickNewWaypoint(npc)
         this.npcs.push(npc)
@@ -359,8 +500,10 @@ function makeParkScene(P: any) {
     }
 
     updateNpcTextures() {
-      const key = this.currentNpcTextureKey()
-      for (const npc of this.npcs) npc.sprite.setTexture(key)
+      const stateKey = this.currentNpcTextureKey()
+      for (const npc of this.npcs) {
+        npc.sprite.play(npcWalkAnimKey(stateKey, npc.facing), true)
+      }
     }
 
     clearNpcs() {
@@ -431,6 +574,10 @@ function makeParkScene(P: any) {
         this.weatherLayer.clear()
       }
 
+      if (this.vars.time_of_day === 'night') {
+        this.tickNightSky(time, delta)
+      }
+
       for (const npc of this.npcs) {
         this.updateNpc(npc, time, delta)
       }
@@ -492,9 +639,22 @@ function makeParkScene(P: any) {
       } else {
         npc.col += (dx / dist) * step
         npc.row += (dy / dist) * step
-        npc.sprite.setFlipX(dx < 0)
+
+        const screenDx = (dx - dy) * (TILE_W / 2)
+        const screenDy = (dx + dy) * TILE_H_STEP
+        const { facing, flipped } = facingFromScreenDelta(screenDx, screenDy)
+        this.setNpcFacing(npc, facing, flipped)
+
         this.placeNpc(npc)
       }
+    }
+
+    setNpcFacing(npc: Npc, facing: NpcFacing, flipped: boolean) {
+      if (npc.facing === facing && npc.facingFlipped === flipped) return
+      npc.facing = facing
+      npc.facingFlipped = flipped
+      npc.sprite.setFlipX(flipped)
+      npc.sprite.play(npcWalkAnimKey(this.currentNpcTextureKey(), facing), true)
     }
 
     tickRain(heavy: boolean) {
@@ -575,6 +735,10 @@ export default function VariablesInteractive() {
         parent: container,
         banner: false,
         fps: { target: 30 },
+        scale: {
+          mode: P.Scale.FIT,
+          autoCenter: P.Scale.CENTER_BOTH,
+        },
       })
       gameRef.current = game
     })
@@ -631,6 +795,30 @@ export default function VariablesInteractive() {
         ref={editorContainerRef}
         className="overflow-hidden rounded border border-gray-300"
       />
+      <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+        <div className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+          Available values
+        </div>
+        <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2">
+          {LEGEND_ROWS.map(({ name, values }) => (
+            <Fragment key={name}>
+              <dt className="font-mono text-sm font-medium text-gray-900">
+                {name}
+              </dt>
+              <dd className="flex flex-wrap gap-1.5">
+                {values.map((v) => (
+                  <span
+                    key={v}
+                    className="rounded border border-gray-300 bg-white px-2 py-0.5 font-mono text-xs text-gray-700"
+                  >
+                    {v}
+                  </span>
+                ))}
+              </dd>
+            </Fragment>
+          ))}
+        </dl>
+      </div>
       <div className="flex flex-wrap items-start gap-3">
         <button
           onClick={handleRun}
@@ -647,7 +835,7 @@ export default function VariablesInteractive() {
       </div>
       <div
         ref={gameContainerRef}
-        className="overflow-hidden rounded-lg border border-gray-200 shadow-sm"
+        className="aspect-video w-full overflow-hidden rounded-lg border border-gray-200 shadow-sm"
       />
     </div>
   )
