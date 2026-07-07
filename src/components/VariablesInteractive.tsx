@@ -95,8 +95,14 @@ const NPC_STATE_KEYS = [
   NPC_RAIN_KEY,
 ]
 const NPC_WALK_FRAME_COUNT = 6
-type NpcFacing = 'south' | 'north' | 'east'
-const NPC_FACINGS: NpcFacing[] = ['south', 'north', 'east']
+type NpcFacing = 'south' | 'north' | 'east' | 'south-east' | 'north-east'
+const NPC_FACINGS: NpcFacing[] = [
+  'south',
+  'north',
+  'east',
+  'south-east',
+  'north-east',
+]
 const npcWalkAnimKey = (stateKey: string, facing: NpcFacing) =>
   `${stateKey}-walk-${facing}`
 const npcWalkFrameKey = (stateKey: string, facing: NpcFacing, frame: number) =>
@@ -175,15 +181,34 @@ interface Npc {
 
 // Facing is decided from the on-screen movement vector (not raw col/row
 // delta) since the isometric projection makes a "straight" grid move look
-// diagonal on screen. West reuses the east animation, mirrored.
+// diagonal on screen. Full 8-way bucketing from only 5 generated directions:
+// west/south-west/north-west mirror east/south-east/north-east via flipX.
 function facingFromScreenDelta(
   dxScreen: number,
   dyScreen: number,
 ): { facing: NpcFacing; flipped: boolean } {
-  if (Math.abs(dyScreen) >= Math.abs(dxScreen)) {
-    return { facing: dyScreen < 0 ? 'north' : 'south', flipped: false }
+  const angleDeg = (Math.atan2(dyScreen, dxScreen) * 180) / Math.PI
+  const normalized = ((angleDeg % 360) + 360) % 360
+  const sector = Math.round(normalized / 45) % 8
+
+  switch (sector) {
+    case 0:
+      return { facing: 'east', flipped: false }
+    case 1:
+      return { facing: 'south-east', flipped: false }
+    case 2:
+      return { facing: 'south', flipped: false }
+    case 3:
+      return { facing: 'south-east', flipped: true } // south-west
+    case 4:
+      return { facing: 'east', flipped: true } // west
+    case 5:
+      return { facing: 'north-east', flipped: true } // north-west
+    case 6:
+      return { facing: 'north', flipped: false }
+    default:
+      return { facing: 'north-east', flipped: false }
   }
-  return { facing: 'east', flipped: dxScreen < 0 }
 }
 
 // ── Error helpers ─────────────────────────────────────────────────────────────
@@ -249,6 +274,9 @@ function makeParkScene(P: any) {
     bg: any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     weatherLayer: any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    snowLayer: any
+    snowFlakes: Array<{ x: number; y: number; drift: number }> = []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     nightOverlay: any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -317,6 +345,13 @@ function makeParkScene(P: any) {
 
       this.weatherLayer = this.add.graphics()
       this.weatherLayer.setDepth(1000)
+      this.snowLayer = this.add.graphics()
+      this.snowLayer.setDepth(1000)
+      this.snowFlakes = Array.from({ length: 60 }, () => ({
+        x: Math.random() * CANVAS_W,
+        y: Math.random() * CANVAS_H,
+        drift: (Math.random() - 0.5) * 1.5,
+      }))
       this.nightOverlay = this.add.rectangle(
         CANVAS_W / 2,
         CANVAS_H / 2,
@@ -327,10 +362,12 @@ function makeParkScene(P: any) {
       )
       this.nightOverlay.setDepth(1001)
 
-      this.drops = Array.from({ length: 100 }, () => ({
-        x: Math.random() * CANVAS_W,
-        y: Math.random() * CANVAS_H,
-      }))
+      this.drops = Array.from({ length: 100 }, () => {
+        const drop = { x: 0, y: 0 }
+        this.resetRainDrop(drop)
+        drop.y = Math.random() * CANVAS_H
+        return drop
+      })
 
       for (const stateKey of NPC_STATE_KEYS) {
         for (const facing of NPC_FACINGS) {
@@ -369,13 +406,28 @@ function makeParkScene(P: any) {
         if (this.vars.weather === 'sunny') {
           this.drawSun()
         } else {
-          const cloudColor =
-            this.vars.weather === 'stormy' ? 0x555555 : 0xcccccc
-          this.bg.fillStyle(cloudColor, 0.9)
-          for (const [cx, cy, rw, rh] of CLOUD_POSITIONS) {
-            this.bg.fillEllipse(cx, cy, rw, rh)
-          }
+          this.drawClouds()
         }
+      }
+    }
+
+    drawClouds() {
+      const stormy = this.vars.weather === 'stormy'
+      const base = stormy ? 0x4a4a52 : 0xcccccc
+      const shadow = stormy ? 0x33333c : 0xaaaaaa
+      const highlight = stormy ? 0x6b6b76 : 0xffffff
+
+      for (const [cx, cy, rw, rh] of CLOUD_POSITIONS) {
+        this.bg.fillStyle(shadow, 0.9)
+        this.bg.fillEllipse(cx, cy + rh * 0.25, rw * 0.9, rh * 0.7)
+
+        this.bg.fillStyle(base, 0.95)
+        this.bg.fillEllipse(cx - rw * 0.3, cy, rw * 0.55, rh * 0.75)
+        this.bg.fillEllipse(cx + rw * 0.32, cy + rh * 0.05, rw * 0.5, rh * 0.7)
+        this.bg.fillEllipse(cx, cy - rh * 0.15, rw * 0.65, rh * 0.85)
+
+        this.bg.fillStyle(highlight, stormy ? 0.25 : 0.55)
+        this.bg.fillEllipse(cx - rw * 0.1, cy - rh * 0.3, rw * 0.35, rh * 0.35)
       }
     }
 
@@ -520,11 +572,25 @@ function makeParkScene(P: any) {
         npc.targetRow = DOOR_CELL.row
         return
       }
-      let col: number
-      let row: number
-      do {
-        ;({ col, row } = randomFreeCell())
-      } while (Math.abs(col - npc.col) < 0.1 && Math.abs(row - npc.row) < 0.1)
+      // Bounded retry to avoid NPCs piling onto the same target cell; falls
+      // back to the last candidate rather than looping forever on a full grid.
+      let col = npc.col
+      let row = npc.row
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const candidate = randomFreeCell()
+        const isSelf =
+          Math.abs(candidate.col - npc.col) < 0.1 &&
+          Math.abs(candidate.row - npc.row) < 0.1
+        const isTakenByOther = this.npcs.some(
+          (other) =>
+            other !== npc &&
+            Math.abs(other.targetCol - candidate.col) < 0.1 &&
+            Math.abs(other.targetRow - candidate.row) < 0.1,
+        )
+        col = candidate.col
+        row = candidate.row
+        if (!isSelf && !isTakenByOther) break
+      }
       npc.targetCol = col
       npc.targetRow = row
     }
@@ -565,13 +631,25 @@ function makeParkScene(P: any) {
     }
 
     update(time: number, delta: number) {
-      const { weather } = this.vars
+      const { weather, season } = this.vars
       if (weather === 'rainy' || weather === 'stormy') {
         this.tickRain(weather === 'stormy')
       } else if (weather === 'windy') {
         this.tickWind()
       } else {
         this.weatherLayer.clear()
+      }
+
+      if (weather === 'windy') {
+        this.tickTreeShake(time)
+      } else {
+        for (const tree of this.treeSprites) tree.setRotation(0)
+      }
+
+      if (season === 'winter') {
+        this.tickSnow(delta)
+      } else {
+        this.snowLayer.clear()
       }
 
       if (this.vars.time_of_day === 'night') {
@@ -662,14 +740,31 @@ function makeParkScene(P: any) {
       const speed = heavy ? 9 : 5
       this.weatherLayer.lineStyle(heavy ? 2 : 1, 0x9bb8d8, heavy ? 0.8 : 0.6)
       for (const drop of this.drops) {
-        drop.y = (drop.y + speed) % CANVAS_H
-        drop.x = (drop.x - 1 + CANVAS_W) % CANVAS_W
+        drop.y += speed
+        drop.x -= 1
+        if (drop.y > CANVAS_H || drop.x < 0) {
+          this.resetRainDrop(drop)
+        }
         this.weatherLayer.lineBetween(
           drop.x,
           drop.y,
           drop.x - 2,
           drop.y + (heavy ? 12 : 7),
         )
+      }
+    }
+
+    resetRainDrop(drop: { x: number; y: number }) {
+      const [cx, cy, rw] =
+        CLOUD_POSITIONS[Math.floor(Math.random() * CLOUD_POSITIONS.length)]
+      drop.x = cx + (Math.random() - 0.5) * rw
+      drop.y = cy + 12 + Math.random() * 14
+    }
+
+    tickTreeShake(time: number) {
+      for (let i = 0; i < this.treeSprites.length; i++) {
+        const angle = Math.sin(time * 0.006 + i * 1.3) * 0.06
+        this.treeSprites[i].setRotation(angle)
       }
     }
 
@@ -684,6 +779,23 @@ function makeParkScene(P: any) {
         if (drop.y < 0) drop.y = CANVAS_H - 20
         this.weatherLayer.fillStyle(leafColors[i % 4], 0.82)
         this.weatherLayer.fillEllipse(drop.x, drop.y, 10, 5)
+      }
+    }
+
+    tickSnow(delta: number) {
+      this.snowLayer.clear()
+      this.snowLayer.fillStyle(0xffffff, 0.9)
+      const speed = (40 * delta) / 1000
+      for (const flake of this.snowFlakes) {
+        flake.y += speed
+        flake.x += flake.drift
+        if (flake.y > CANVAS_H) {
+          flake.y = -5
+          flake.x = Math.random() * CANVAS_W
+        }
+        if (flake.x < 0) flake.x = CANVAS_W
+        if (flake.x > CANVAS_W) flake.x = 0
+        this.snowLayer.fillCircle(flake.x, flake.y, 2)
       }
     }
   }
