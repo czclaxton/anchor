@@ -128,19 +128,33 @@ const ASSET_KEYS = [
   ),
 ]
 
-const GRID_SIZE = 6
+const GRID_SIZE = 12
 const TILE_W = 48
 const TILE_H_STEP = 12
 const ORIGIN_X = CANVAS_W / 2
 const ORIGIN_Y = 100
 
-const BUILDING_ANCHOR = { col: 1, row: 1 }
-const DOOR_CELL = { col: 1, row: 2 }
+// Building/door/tree layout is unchanged relative to the original 6×6 grid,
+// just recentered (+3 col/row) so the single building doesn't sit in a
+// corner of the larger 12×12 field. Later phases (school, streets, cars)
+// will place additional content around this anchor.
+const BUILDING_ANCHOR = { col: 4, row: 4 }
+const DOOR_CELL = { col: 4, row: 5 }
 const TREE_ANCHORS = [
-  { col: 4, row: 0 },
-  { col: 5, row: 3 },
-  { col: 0, row: 4 },
+  { col: 7, row: 3 },
+  { col: 8, row: 6 },
+  { col: 3, row: 7 },
 ]
+
+// Padding (in screen px) added around the grid's projected bounding box when
+// fitting the camera, to account for sprites that extend beyond their anchor
+// point (building/tree height, tile width) rather than clipping them at the
+// grid edge.
+const CAMERA_FIT_PAD_X = TILE_W
+const CAMERA_FIT_PAD_TOP = 140
+const CAMERA_FIT_PAD_BOTTOM = 60
+const CAMERA_MIN_ZOOM = 0.3
+const CAMERA_MAX_ZOOM = 1
 
 function isoToScreen(col: number, row: number): { x: number; y: number } {
   return {
@@ -387,9 +401,39 @@ function makeParkScene(P: any) {
       this.npcs = []
       this.spawnNpcs(this.vars.npc_count)
 
+      this.fitCameraToGrid()
       this.drawSky()
       this.updateOverlays()
       this.sceneReady = true
+    }
+
+    // Static zoomed-out view of the whole grid (not a scrollable/pannable
+    // camera) — computed from the grid's projected iso bounds so it stays
+    // correct as GRID_SIZE grows in later phases.
+    fitCameraToGrid() {
+      const corners = [
+        isoToScreen(0, 0),
+        isoToScreen(GRID_SIZE - 1, 0),
+        isoToScreen(0, GRID_SIZE - 1),
+        isoToScreen(GRID_SIZE - 1, GRID_SIZE - 1),
+      ]
+      const minX = Math.min(...corners.map((c) => c.x)) - CAMERA_FIT_PAD_X
+      const maxX = Math.max(...corners.map((c) => c.x)) + CAMERA_FIT_PAD_X
+      const minY = Math.min(...corners.map((c) => c.y)) - CAMERA_FIT_PAD_TOP
+      const maxY = Math.max(...corners.map((c) => c.y)) + CAMERA_FIT_PAD_BOTTOM
+
+      const width = maxX - minX
+      const height = maxY - minY
+      const zoom = Math.min(
+        CAMERA_MAX_ZOOM,
+        Math.max(
+          CAMERA_MIN_ZOOM,
+          Math.min(CANVAS_W / width, CANVAS_H / height),
+        ),
+      )
+
+      this.cameras.main.setZoom(zoom)
+      this.cameras.main.centerOn((minX + maxX) / 2, (minY + maxY) / 2)
     }
 
     drawSky() {

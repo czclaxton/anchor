@@ -192,10 +192,29 @@
       "type": "feat",
       "scope": "lesson-1",
       "redPolicy": "skip",
-      "status": "red_complete",
+      "status": "reviewed",
       "branch": "agents/p1-07-lesson-1-interactive-program-the-robot",
       "baseBranch": "agents/p1-06-lesson-1-content-what-is-a-program",
-      "worktreePath": "C:\\Repos\\anchor_p1_07"
+      "worktreePath": "C:\\Repos\\anchor_p1_07",
+      "verifiedAt": "2026-07-02T21:06:40.763Z",
+      "verifyOutcome": "clean",
+      "subagentReviewOutcome": "patched",
+      "subagentReviewCompletedAt": "2026-07-02T21:20:52.730Z",
+      "subagentReviewPatchCommits": [
+        {
+          "sha": "55a7345",
+          "subject": "fix(lesson-1): handle not-ready scene and IndentationError formatting [subagent-review]"
+        }
+      ],
+      "subagentRunnerArtifactPath": "docs/product/delivery/phase-1/reviews/P1.07-subagent-review.ledger.json",
+      "subagentAdversarialPromptPath": "docs/product/delivery/phase-1/reviews/P1.07-subagent-review.prompt.md",
+      "subagentAdversarialPromptWrittenAt": "2026-07-02T21:06:50.751Z",
+      "prNumber": 7,
+      "prUrl": "https://github.com/czclaxton/anchor/pull/7",
+      "prOpenedAt": "2026-07-02T22:03:21.845Z",
+      "reviewTriageArtifactPath": "C:\\Repos\\anchor_p1_07\\docs\\product\\delivery\\phase-1\\reviews\\P1.07-pr-review.triage.json",
+      "reviewRecordedAt": "2026-07-02T22:03:34.678Z",
+      "reviewOutcome": "skipped"
     },
     {
       "id": "P1.08",
