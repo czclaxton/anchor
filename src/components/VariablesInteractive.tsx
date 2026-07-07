@@ -632,22 +632,26 @@ function makeParkScene(P: any) {
 
     update(time: number, delta: number) {
       const { weather, season } = this.vars
+      const windy = weather === 'windy'
+
       if (weather === 'rainy' || weather === 'stormy') {
         this.tickRain(weather === 'stormy')
-      } else if (weather === 'windy') {
+      } else if (windy && season !== 'winter') {
+        // Leaf particles don't belong on bare winter trees — winter's wind
+        // is conveyed entirely by the snow blowing sideways instead.
         this.tickWind()
       } else {
         this.weatherLayer.clear()
       }
 
-      if (weather === 'windy') {
+      if (windy) {
         this.tickTreeShake(time)
       } else {
         for (const tree of this.treeSprites) tree.setRotation(0)
       }
 
       if (season === 'winter') {
-        this.tickSnow(delta)
+        this.tickSnow(delta, windy)
       } else {
         this.snowLayer.clear()
       }
@@ -782,11 +786,11 @@ function makeParkScene(P: any) {
       }
     }
 
-    tickSnow(delta: number) {
+    tickSnow(delta: number, windy: boolean) {
       this.snowLayer.clear()
       this.snowLayer.fillStyle(0xffffff, 0.9)
       const speed = (40 * delta) / 1000
-      const windBlow = this.vars.weather === 'windy' ? 2.5 : 0
+      const windBlow = windy ? 6 : 0
       for (const flake of this.snowFlakes) {
         flake.y += speed
         flake.x += flake.drift + windBlow
