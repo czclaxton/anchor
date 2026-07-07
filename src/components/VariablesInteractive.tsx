@@ -786,15 +786,16 @@ function makeParkScene(P: any) {
       this.snowLayer.clear()
       this.snowLayer.fillStyle(0xffffff, 0.9)
       const speed = (40 * delta) / 1000
+      const windBlow = this.vars.weather === 'windy' ? 2.5 : 0
       for (const flake of this.snowFlakes) {
         flake.y += speed
-        flake.x += flake.drift
+        flake.x += flake.drift + windBlow
         if (flake.y > CANVAS_H) {
           flake.y = -5
           flake.x = Math.random() * CANVAS_W
         }
-        if (flake.x < 0) flake.x = CANVAS_W
-        if (flake.x > CANVAS_W) flake.x = 0
+        if (flake.x < -10) flake.x = CANVAS_W
+        if (flake.x > CANVAS_W + 10) flake.x = 0
         this.snowLayer.fillCircle(flake.x, flake.y, 2)
       }
     }
