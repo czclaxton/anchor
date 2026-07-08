@@ -128,33 +128,37 @@ const ASSET_KEYS = [
   ),
 ]
 
-const GRID_SIZE = 12
+const GRID_SIZE = 16
 const TILE_W = 48
 const TILE_H_STEP = 12
 const ORIGIN_X = CANVAS_W / 2
 const ORIGIN_Y = 100
 
-// Building/door/tree layout is unchanged relative to the original 6×6 grid,
-// just recentered (+3 col/row) so the single building doesn't sit in a
-// corner of the larger 12×12 field. Later phases (school, streets, cars)
-// will place additional content around this anchor.
-const BUILDING_ANCHOR = { col: 4, row: 4 }
-const DOOR_CELL = { col: 4, row: 5 }
+// Building/door/tree layout keeps the original relative pattern, recentered
+// for the 16×16 field. Later phases (school, streets, cars) will place
+// additional content around this anchor.
+const BUILDING_ANCHOR = { col: 6, row: 6 }
+const DOOR_CELL = { col: 6, row: 7 }
 const TREE_ANCHORS = [
-  { col: 7, row: 3 },
-  { col: 8, row: 6 },
-  { col: 3, row: 7 },
+  { col: 9, row: 5 },
+  { col: 10, row: 8 },
+  { col: 5, row: 9 },
 ]
 
-// Padding (in screen px) added around the grid's projected bounding box when
-// fitting the camera, to account for sprites that extend beyond their anchor
-// point (building/tree height, tile width) rather than clipping them at the
-// grid edge.
-const CAMERA_FIT_PAD_X = TILE_W
-const CAMERA_FIT_PAD_TOP = 140
-const CAMERA_FIT_PAD_BOTTOM = 60
+// The camera pins the grid's top vertex (the horizon) SKY_HEIGHT_PX from the
+// top of the canvas so the scene reads as ground with a band of sky above it
+// — decorative ground tiles fill the rest of the view below the horizon so
+// the playable grid doesn't look like a floating island.
+const SKY_HEIGHT_PX = 80
+const CAMERA_SIDE_PAD = 24
+const CAMERA_BOTTOM_PAD = 16
 const CAMERA_MIN_ZOOM = 0.3
 const CAMERA_MAX_ZOOM = 1
+
+// Sky decor (sun/moon/stars/clouds) was laid out on the original 640×100
+// sky strip; positions are remapped as fractions into whatever sky band the
+// camera's zoom actually produces (view top → horizon).
+const SKY_DESIGN_H = 100
 
 function isoToScreen(col: number, row: number): { x: number; y: number } {
   return {
@@ -306,6 +310,11 @@ function makeParkScene(P: any) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     groundTiles: any[][] = []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    decorativeTiles: any[] = []
+    // Visible world rect (differs from CANVAS_W/H once the camera zooms out)
+    view = { x: 0, y: 0, w: CANVAS_W, h: CANVAS_H }
+    cloudRects: Array<{ x: number; y: number; rw: number; rh: number }> = []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     treeSprites: any[] = []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     buildingSprite: any
@@ -323,6 +332,8 @@ function makeParkScene(P: any) {
     }
 
     create() {
+      this.setupCamera()
+
       this.bg = this.add.graphics()
       this.bg.setDepth(-2000)
 
@@ -337,6 +348,28 @@ function makeParkScene(P: any) {
           rowTiles.push(tile)
         }
         this.groundTiles.push(rowTiles)
+      }
+
+      // Decorative (non-walkable) ground beyond the playable grid: fills the
+      // visible area below the horizon so the world reads as continuous
+      // ground with sky above it, not a floating diamond.
+      this.decorativeTiles = []
+      const pad = TILE_W
+      const range = 48
+      for (let row = -range; row < GRID_SIZE + range; row++) {
+        for (let col = -range; col < GRID_SIZE + range; col++) {
+          const inPlayable =
+            col >= 0 && col < GRID_SIZE && row >= 0 && row < GRID_SIZE
+          if (inPlayable) continue
+          const { x, y } = isoToScreen(col, row)
+          if (y < ORIGIN_Y || y > this.view.y + this.view.h + pad) continue
+          if (x < this.view.x - pad || x > this.view.x + this.view.w + pad)
+            continue
+          const tile = this.add.image(x, y, groundKey(this.vars.season))
+          tile.setOrigin(0.5, 0.25)
+          tile.setDepth(-1001)
+          this.decorativeTiles.push(tile)
+        }
       }
 
       const bPos = isoToScreen(BUILDING_ANCHOR.col, BUILDING_ANCHOR.row)
@@ -361,25 +394,26 @@ function makeParkScene(P: any) {
       this.weatherLayer.setDepth(1000)
       this.snowLayer = this.add.graphics()
       this.snowLayer.setDepth(1000)
-      this.snowFlakes = Array.from({ length: 60 }, () => ({
-        x: Math.random() * CANVAS_W,
-        y: Math.random() * CANVAS_H,
+      this.snowFlakes = Array.from({ length: 90 }, () => ({
+        x: this.view.x + Math.random() * this.view.w,
+        y: this.view.y + Math.random() * this.view.h,
         drift: (Math.random() - 0.5) * 1.5,
       }))
       this.nightOverlay = this.add.rectangle(
-        CANVAS_W / 2,
-        CANVAS_H / 2,
-        CANVAS_W,
-        CANVAS_H,
+        this.view.x + this.view.w / 2,
+        this.view.y + this.view.h / 2,
+        this.view.w,
+        this.view.h,
         0x000000,
         0,
       )
       this.nightOverlay.setDepth(1001)
 
-      this.drops = Array.from({ length: 100 }, () => {
+      // Drops start at cloud undersides (not scattered mid-sky) so the
+      // first rain visibly falls from the clouds.
+      this.drops = Array.from({ length: 130 }, () => {
         const drop = { x: 0, y: 0 }
         this.resetRainDrop(drop)
-        drop.y = Math.random() * CANVAS_H
         return drop
       })
 
@@ -401,67 +435,92 @@ function makeParkScene(P: any) {
       this.npcs = []
       this.spawnNpcs(this.vars.npc_count)
 
-      this.fitCameraToGrid()
       this.drawSky()
       this.updateOverlays()
       this.sceneReady = true
     }
 
-    // Static zoomed-out view of the whole grid (not a scrollable/pannable
-    // camera) — computed from the grid's projected iso bounds so it stays
-    // correct as GRID_SIZE grows in later phases.
-    fitCameraToGrid() {
-      const corners = [
-        isoToScreen(0, 0),
-        isoToScreen(GRID_SIZE - 1, 0),
-        isoToScreen(0, GRID_SIZE - 1),
-        isoToScreen(GRID_SIZE - 1, GRID_SIZE - 1),
-      ]
-      const minX = Math.min(...corners.map((c) => c.x)) - CAMERA_FIT_PAD_X
-      const maxX = Math.max(...corners.map((c) => c.x)) + CAMERA_FIT_PAD_X
-      const minY = Math.min(...corners.map((c) => c.y)) - CAMERA_FIT_PAD_TOP
-      const maxY = Math.max(...corners.map((c) => c.y)) + CAMERA_FIT_PAD_BOTTOM
-
-      const width = maxX - minX
-      const height = maxY - minY
+    // Static zoomed-out view (not scrollable/pannable). Zoom fits the whole
+    // playable grid into the space below the sky band; the grid's top vertex
+    // is pinned SKY_HEIGHT_PX from the canvas top so the horizon sits high
+    // and ground fills the rest of the frame. Computed from GRID_SIZE, so it
+    // stays correct as the grid grows in later phases.
+    setupCamera() {
+      const diamondW = (GRID_SIZE - 1) * TILE_W
+      const diamondH = (GRID_SIZE - 1) * 2 * TILE_H_STEP
       const zoom = Math.min(
         CAMERA_MAX_ZOOM,
         Math.max(
           CAMERA_MIN_ZOOM,
-          Math.min(CANVAS_W / width, CANVAS_H / height),
+          Math.min(
+            (CANVAS_W - CAMERA_SIDE_PAD * 2) / diamondW,
+            (CANVAS_H - SKY_HEIGHT_PX - CAMERA_BOTTOM_PAD) / diamondH,
+          ),
         ),
       )
 
+      const centerY = ORIGIN_Y + (CANVAS_H / 2 - SKY_HEIGHT_PX) / zoom
       this.cameras.main.setZoom(zoom)
-      this.cameras.main.centerOn((minX + maxX) / 2, (minY + maxY) / 2)
+      this.cameras.main.centerOn(ORIGIN_X, centerY)
+
+      const w = CANVAS_W / zoom
+      const h = CANVAS_H / zoom
+      this.view = { x: ORIGIN_X - w / 2, y: centerY - h / 2, w, h }
+
+      // Cloud rects live in world coords so rain can anchor to them even
+      // when the sky is redrawn (e.g. rainy nights).
+      const s = w / CANVAS_W
+      this.cloudRects = CLOUD_POSITIONS.map(([cx, cy, rw, rh]) => ({
+        x: this.skyX(cx),
+        y: this.skyY(cy),
+        rw: rw * s,
+        rh: rh * s,
+      }))
+    }
+
+    // Map original 640×100 sky-strip design coords into the actual sky band
+    // (view top → horizon) the camera produced.
+    skyX(px: number): number {
+      return this.view.x + (px / CANVAS_W) * this.view.w
+    }
+
+    skyY(py: number): number {
+      return this.view.y + (py / SKY_DESIGN_H) * (ORIGIN_Y - this.view.y)
     }
 
     drawSky() {
       this.bg.clear()
 
-      const skyColor =
-        this.vars.time_of_day === 'night'
-          ? 0x0d0d2b
-          : (SKY_DAY[this.vars.weather] ?? 0x87ceeb)
+      const night = this.vars.time_of_day === 'night'
+      const raining =
+        this.vars.weather === 'rainy' || this.vars.weather === 'stormy'
+      const skyColor = night
+        ? 0x0d0d2b
+        : (SKY_DAY[this.vars.weather] ?? 0x87ceeb)
       this.bg.fillStyle(skyColor)
-      this.bg.fillRect(0, 0, CANVAS_W, CANVAS_H)
+      this.bg.fillRect(this.view.x, this.view.y, this.view.w, this.view.h)
 
-      if (this.vars.time_of_day !== 'night') {
+      if (!night) {
         if (this.vars.weather === 'sunny') {
           this.drawSun()
         } else {
-          this.drawClouds()
+          this.drawClouds(false)
         }
+      } else if (raining) {
+        // Clouds also render on rainy nights so rain visibly falls from
+        // them instead of appearing out of empty sky.
+        this.drawClouds(true)
       }
     }
 
-    drawClouds() {
+    drawClouds(night: boolean) {
       const stormy = this.vars.weather === 'stormy'
-      const base = stormy ? 0x4a4a52 : 0xcccccc
-      const shadow = stormy ? 0x33333c : 0xaaaaaa
-      const highlight = stormy ? 0x6b6b76 : 0xffffff
+      const base = night ? 0x2a2a3e : stormy ? 0x4a4a52 : 0xcccccc
+      const shadow = night ? 0x1d1d2e : stormy ? 0x33333c : 0xaaaaaa
+      const highlight = night ? 0x3c3c55 : stormy ? 0x6b6b76 : 0xffffff
+      const highlightAlpha = night ? 0.3 : stormy ? 0.25 : 0.55
 
-      for (const [cx, cy, rw, rh] of CLOUD_POSITIONS) {
+      for (const { x: cx, y: cy, rw, rh } of this.cloudRects) {
         this.bg.fillStyle(shadow, 0.9)
         this.bg.fillEllipse(cx, cy + rh * 0.25, rw * 0.9, rh * 0.7)
 
@@ -470,35 +529,36 @@ function makeParkScene(P: any) {
         this.bg.fillEllipse(cx + rw * 0.32, cy + rh * 0.05, rw * 0.5, rh * 0.7)
         this.bg.fillEllipse(cx, cy - rh * 0.15, rw * 0.65, rh * 0.85)
 
-        this.bg.fillStyle(highlight, stormy ? 0.25 : 0.55)
+        this.bg.fillStyle(highlight, highlightAlpha)
         this.bg.fillEllipse(cx - rw * 0.1, cy - rh * 0.3, rw * 0.35, rh * 0.35)
       }
     }
 
     drawSun() {
-      const sx = 560
-      const sy = 44
+      const s = this.view.w / CANVAS_W
+      const sx = this.skyX(560)
+      const sy = this.skyY(44)
 
       this.bg.fillStyle(0xfff4a0, 0.22)
-      this.bg.fillCircle(sx, sy, 52)
+      this.bg.fillCircle(sx, sy, 52 * s)
       this.bg.fillStyle(0xfff4a0, 0.4)
-      this.bg.fillCircle(sx, sy, 38)
+      this.bg.fillCircle(sx, sy, 38 * s)
 
       this.bg.lineStyle(3, 0xffe066, 0.85)
       for (let i = 0; i < 8; i++) {
         const angle = (i / 8) * Math.PI * 2
         this.bg.lineBetween(
-          sx + Math.cos(angle) * 27,
-          sy + Math.sin(angle) * 27,
-          sx + Math.cos(angle) * 40,
-          sy + Math.sin(angle) * 40,
+          sx + Math.cos(angle) * 27 * s,
+          sy + Math.sin(angle) * 27 * s,
+          sx + Math.cos(angle) * 40 * s,
+          sy + Math.sin(angle) * 40 * s,
         )
       }
 
       this.bg.fillStyle(0xffd700)
-      this.bg.fillCircle(sx, sy, 24)
+      this.bg.fillCircle(sx, sy, 24 * s)
       this.bg.fillStyle(0xfff2b0, 0.85)
-      this.bg.fillCircle(sx - 6, sy - 6, 9)
+      this.bg.fillCircle(sx - 6 * s, sy - 6 * s, 9 * s)
     }
 
     updateOverlays() {
@@ -512,15 +572,16 @@ function makeParkScene(P: any) {
     tickNightSky(time: number, delta: number) {
       this.nightSkyLayer.clear()
 
+      const scale = this.view.w / CANVAS_W
       this.nightSkyLayer.fillStyle(0xfff8dc)
-      this.nightSkyLayer.fillCircle(540, 42, 22)
+      this.nightSkyLayer.fillCircle(this.skyX(540), this.skyY(42), 22 * scale)
 
       for (let i = 0; i < STAR_POSITIONS.length; i++) {
         const [sx, sy] = STAR_POSITIONS[i]
         const twinkle = 0.5 + 0.5 * Math.sin(time * 0.002 + i * 1.7)
         this.nightSkyLayer.fillStyle(0xffffff, 0.4 + twinkle * 0.6)
         const size = 1.5 + twinkle * 1.5
-        this.nightSkyLayer.fillRect(sx, sy, size, size)
+        this.nightSkyLayer.fillRect(this.skyX(sx), this.skyY(sy), size, size)
       }
 
       if (this.shootingStar) {
@@ -541,10 +602,10 @@ function makeParkScene(P: any) {
         }
       } else if (time > this.nextShootingStarAt) {
         this.shootingStar = {
-          x: 100 + Math.random() * 400,
-          y: 10 + Math.random() * 60,
-          vx: 6,
-          vy: 3,
+          x: this.skyX(100 + Math.random() * 400),
+          y: this.skyY(10 + Math.random() * 60),
+          vx: 6 * scale,
+          vy: 3 * scale,
           ttl: 500,
         }
         this.nextShootingStarAt = time + 4000 + Math.random() * 8000
@@ -661,9 +722,22 @@ function makeParkScene(P: any) {
         for (const row of this.groundTiles) {
           for (const tile of row) tile.setTexture(groundKey(newVars.season))
         }
+        for (const tile of this.decorativeTiles) {
+          tile.setTexture(groundKey(newVars.season))
+        }
         for (const tree of this.treeSprites) {
           tree.setTexture(treeKey(newVars.season))
         }
+      }
+
+      // When weather switches into rain, snap all drops back to the clouds —
+      // otherwise they'd start falling from wherever the last effect (or the
+      // initial scatter) left them, mid-sky.
+      const wasRaining = prev.weather === 'rainy' || prev.weather === 'stormy'
+      const nowRaining =
+        newVars.weather === 'rainy' || newVars.weather === 'stormy'
+      if (nowRaining && !wasRaining) {
+        for (const drop of this.drops) this.resetRainDrop(drop)
       }
 
       this.updateOverlays()
@@ -790,7 +864,7 @@ function makeParkScene(P: any) {
       for (const drop of this.drops) {
         drop.y += speed
         drop.x -= 1
-        if (drop.y > CANVAS_H || drop.x < 0) {
+        if (drop.y > this.view.y + this.view.h || drop.x < this.view.x - 10) {
           this.resetRainDrop(drop)
         }
         this.weatherLayer.lineBetween(
@@ -803,15 +877,17 @@ function makeParkScene(P: any) {
     }
 
     resetRainDrop(drop: { x: number; y: number }) {
-      const [cx, cy, rw] =
-        CLOUD_POSITIONS[Math.floor(Math.random() * CLOUD_POSITIONS.length)]
-      drop.x = cx + (Math.random() - 0.5) * rw
-      drop.y = cy + 12 + Math.random() * 14
+      const cloud =
+        this.cloudRects[Math.floor(Math.random() * this.cloudRects.length)]
+      drop.x = cloud.x + (Math.random() - 0.5) * cloud.rw
+      drop.y = cloud.y + cloud.rh * 0.35 + Math.random() * 6
     }
 
+    // Gentle sway — reads as "some wind", not a storm (tuned down per
+    // developer feedback: trees were shaking too vigorously).
     tickTreeShake(time: number) {
       for (let i = 0; i < this.treeSprites.length; i++) {
-        const angle = Math.sin(time * 0.006 + i * 1.3) * 0.06
+        const angle = Math.sin(time * 0.0045 + i * 1.3) * 0.028
         this.treeSprites[i].setRotation(angle)
       }
     }
@@ -819,12 +895,14 @@ function makeParkScene(P: any) {
     tickWind() {
       this.weatherLayer.clear()
       const leafColors = [0xcc6600, 0xaa4411, 0xdd8833, 0xbb7700]
+      const { x: vx, y: vy, w: vw, h: vh } = this.view
       for (let i = 0; i < 20; i++) {
         const drop = this.drops[i]
-        drop.x = (drop.x + 4.5) % (CANVAS_W + 30)
-        drop.y += Math.sin(drop.x * 0.025 + i * 0.7) * 1.8
-        if (drop.y > CANVAS_H - 20) drop.y = 8 + Math.random() * (CANVAS_H - 40)
-        if (drop.y < 0) drop.y = CANVAS_H - 20
+        drop.x =
+          vx + ((((drop.x - vx + 2.2) % (vw + 30)) + vw + 30) % (vw + 30))
+        drop.y += Math.sin(drop.x * 0.025 + i * 0.7) * 1.2
+        if (drop.y > vy + vh - 20) drop.y = vy + 8 + Math.random() * (vh - 40)
+        if (drop.y < vy) drop.y = vy + vh - 20
         this.weatherLayer.fillStyle(leafColors[i % 4], 0.82)
         this.weatherLayer.fillEllipse(drop.x, drop.y, 10, 5)
       }
@@ -833,17 +911,18 @@ function makeParkScene(P: any) {
     tickSnow(delta: number, windy: boolean) {
       this.snowLayer.clear()
       this.snowLayer.fillStyle(0xffffff, 0.9)
-      const speed = (40 * delta) / 1000
-      const windBlow = windy ? 6 : 0
+      const speed = (30 * delta) / 1000
+      const windBlow = windy ? 2.5 : 0
+      const { x: vx, y: vy, w: vw, h: vh } = this.view
       for (const flake of this.snowFlakes) {
         flake.y += speed
         flake.x += flake.drift + windBlow
-        if (flake.y > CANVAS_H) {
-          flake.y = -5
-          flake.x = Math.random() * CANVAS_W
+        if (flake.y > vy + vh) {
+          flake.y = vy - 5
+          flake.x = vx + Math.random() * vw
         }
-        if (flake.x < -10) flake.x = CANVAS_W
-        if (flake.x > CANVAS_W + 10) flake.x = 0
+        if (flake.x < vx - 10) flake.x = vx + vw
+        if (flake.x > vx + vw + 10) flake.x = vx
         this.snowLayer.fillCircle(flake.x, flake.y, 2)
       }
     }
