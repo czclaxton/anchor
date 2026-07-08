@@ -105,6 +105,47 @@ function groundVariantKey(season: string, col: number, row: number): string {
 }
 
 const treeKey = (season: string) => `tree-${season}`
+
+// Scattered ground props. Kind is fixed per cell (stable hash); which kinds
+// are visible depends on the season — flowers don't bloom on snow, and the
+// snow-covered bush only exists in winter, so winter fields read barer.
+const PROP_KINDS = ['flowers', 'tuft', 'rock', 'snowbush'] as const
+type PropKind = (typeof PROP_KINDS)[number]
+const PROP_KEYS: Record<PropKind, string> = {
+  flowers: 'prop-flowers',
+  tuft: 'prop-tuft',
+  rock: 'prop-rock',
+  snowbush: 'prop-snowbush',
+}
+const PROP_SEASONS: Record<PropKind, string[]> = {
+  flowers: ['spring', 'summer'],
+  tuft: ['spring', 'summer', 'fall'],
+  rock: ['summer', 'fall', 'winter', 'spring'],
+  snowbush: ['winter'],
+}
+
+// ~6% of cells get a prop, with a small deterministic offset so placement
+// doesn't read as grid-aligned. Different mixing primes than the ground
+// variant hash so the two patterns don't correlate.
+function propForCell(
+  col: number,
+  row: number,
+): { kind: PropKind; dx: number; dy: number } | null {
+  const hash = ((col * 40503) ^ (row * 63689) ^ ((col + row) * 52361)) >>> 0
+  if (hash % 100 >= 6) return null
+  const kindRoll = (hash >> 8) % 100
+  const kind: PropKind =
+    kindRoll < 30
+      ? 'flowers'
+      : kindRoll < 70
+        ? 'tuft'
+        : kindRoll < 85
+          ? 'rock'
+          : 'snowbush'
+  const dx = ((hash >> 16) % 17) - 8
+  const dy = ((hash >> 21) % 9) - 4
+  return { kind, dx, dy }
+}
 const npcKey = (season: string) => `npc-${season}`
 const NPC_RAIN_KEY = 'npc-rain'
 const BUILDING_KEY = 'building'
@@ -139,6 +180,7 @@ const ASSET_KEYS = [
     `ground-${s}-v1`,
     `ground-${s}-v2`,
   ]),
+  ...Object.values(PROP_KEYS),
   'tree-summer',
   'tree-fall',
   'tree-winter',
@@ -354,6 +396,8 @@ function makeParkScene(P: any) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     treeSprites: any[] = []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    props: Array<{ sprite: any; kind: PropKind }> = []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     buildingSprite: any
     npcs: Npc[] = []
     drops: Array<{ x: number; y: number }> = []
@@ -429,6 +473,36 @@ function makeParkScene(P: any) {
         tree.setDepth(col + row)
         return tree
       })
+
+      this.props = []
+      const tryPlaceProp = (col: number, row: number) => {
+        // Keep the building block (anchor ±1, which covers the door) and
+        // tree cells clear.
+        if (
+          col >= BUILDING_ANCHOR.col - 1 &&
+          col <= BUILDING_ANCHOR.col + 1 &&
+          row >= BUILDING_ANCHOR.row - 1 &&
+          row <= BUILDING_ANCHOR.row + 1
+        )
+          return
+        if (TREE_ANCHORS.some((t) => t.col === col && t.row === row)) return
+        const pick = propForCell(col, row)
+        if (!pick) return
+        const { x, y } = isoToScreen(col, row)
+        const sprite = this.add.image(
+          x + pick.dx,
+          y + pick.dy,
+          PROP_KEYS[pick.kind],
+        )
+        sprite.setOrigin(0.5, 0.85)
+        sprite.setDepth(col + row)
+        sprite.setVisible(PROP_SEASONS[pick.kind].includes(this.vars.season))
+        this.props.push({ sprite, kind: pick.kind })
+      }
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) tryPlaceProp(col, row)
+      }
+      for (const { col, row } of this.decorativeTiles) tryPlaceProp(col, row)
 
       this.nightSkyLayer = this.add.graphics()
       this.nightSkyLayer.setDepth(-1999)
@@ -790,6 +864,11 @@ function makeParkScene(P: any) {
         }
         for (const tree of this.treeSprites) {
           tree.setTexture(treeKey(newVars.season))
+        }
+        for (const prop of this.props) {
+          prop.sprite.setVisible(
+            PROP_SEASONS[prop.kind].includes(newVars.season),
+          )
         }
       }
 
