@@ -581,6 +581,13 @@ function makeParkScene(P: any) {
     tickNightSky(time: number, delta: number) {
       this.nightSkyLayer.clear()
 
+      // Overcast nights (rain clouds are drawn) hide the moon and stars —
+      // otherwise the moon renders pasted on top of a storm cloud.
+      if (this.vars.weather === 'rainy' || this.vars.weather === 'stormy') {
+        this.shootingStar = null
+        return
+      }
+
       const scale = this.view.w / CANVAS_W
       this.nightSkyLayer.fillStyle(0xfff8dc)
       this.nightSkyLayer.fillCircle(this.skyX(540), this.skyY(42), 22 * scale)
@@ -889,7 +896,7 @@ function makeParkScene(P: any) {
       const cloud =
         this.cloudRects[Math.floor(Math.random() * this.cloudRects.length)]
       drop.x = cloud.x + (Math.random() - 0.5) * cloud.rw
-      drop.y = cloud.y + cloud.rh * 0.35 + Math.random() * 6
+      drop.y = cloud.y + cloud.rh * 0.6 + Math.random() * 6
     }
 
     // Gentle sway — reads as "some wind", not a storm (tuned down per
