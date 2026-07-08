@@ -195,6 +195,8 @@ type NpcMoveState = 'wandering' | 'entering' | 'inside' | 'exiting'
 interface Npc {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sprite: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  shadow: any
   col: number
   row: number
   targetCol: number
@@ -643,8 +645,13 @@ function makeParkScene(P: any) {
         sprite.setDepth(col + row + 0.5)
         sprite.play(npcWalkAnimKey(this.currentNpcTextureKey(), 'south'))
 
+        // Soft contact shadow at the feet; syncNpcShadow keeps it glued to
+        // the sprite through walking and the enter/exit fade tweens.
+        const shadow = this.add.ellipse(x, y, 26, 10, 0x000000, 0.22)
+
         const npc: Npc = {
           sprite,
+          shadow,
           col,
           row,
           targetCol: col,
@@ -668,6 +675,7 @@ function makeParkScene(P: any) {
         for (const npc of excess) {
           this.tweens.killTweensOf(npc.sprite)
           npc.sprite.destroy()
+          npc.shadow.destroy()
         }
       }
     }
@@ -683,6 +691,7 @@ function makeParkScene(P: any) {
       for (const npc of this.npcs) {
         this.tweens.killTweensOf(npc.sprite)
         npc.sprite.destroy()
+        npc.shadow.destroy()
       }
       this.npcs = []
     }
@@ -799,7 +808,17 @@ function makeParkScene(P: any) {
       }
     }
 
+    // Mirror the sprite's position/alpha/scale/visibility onto its shadow
+    // every frame so the enter/exit tweens don't need to know about it.
+    syncNpcShadow(npc: Npc) {
+      npc.shadow.setPosition(npc.sprite.x, npc.sprite.y)
+      npc.shadow.setDepth(npc.sprite.depth - 0.05)
+      npc.shadow.setScale(npc.sprite.scaleX)
+      npc.shadow.setAlpha(npc.sprite.visible ? npc.sprite.alpha : 0)
+    }
+
     updateNpc(npc: Npc, time: number, delta: number) {
+      this.syncNpcShadow(npc)
       if (npc.state === 'entering' || npc.state === 'exiting') return
 
       if (npc.state === 'inside') {
