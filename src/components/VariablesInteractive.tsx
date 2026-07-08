@@ -81,7 +81,17 @@ const CLOUD_POSITIONS: [number, number, number, number][] = [
 
 // ── Isometric grid + sprite assets ─────────────────────────────────────────────
 
-const groundKey = (season: string) => `ground-${season}`
+// Each season has two extra grass-tile variants (same PixelLab prompt,
+// different seeds). Picking one per cell with a stable spatial hash breaks
+// the repeating-texture moiré without the ground reshuffling between
+// renders or season switches: ~50% base, 25% each variant.
+function groundVariantKey(season: string, col: number, row: number): string {
+  const hash = ((col * 73856093) ^ (row * 19349663)) >>> 0
+  const roll = hash & 3
+  const suffix = roll === 2 ? '-v1' : roll === 3 ? '-v2' : ''
+  return `ground-${season}${suffix}`
+}
+
 const treeKey = (season: string) => `tree-${season}`
 const npcKey = (season: string) => `npc-${season}`
 const NPC_RAIN_KEY = 'npc-rain'
@@ -113,6 +123,10 @@ const ASSET_KEYS = [
   'ground-fall',
   'ground-winter',
   'ground-spring',
+  ...['summer', 'fall', 'winter', 'spring'].flatMap((s) => [
+    `ground-${s}-v1`,
+    `ground-${s}-v2`,
+  ]),
   'tree-summer',
   'tree-fall',
   'tree-winter',
@@ -353,7 +367,11 @@ function makeParkScene(P: any) {
         const rowTiles = []
         for (let col = 0; col < GRID_SIZE; col++) {
           const { x, y } = isoToScreen(col, row)
-          const tile = this.add.image(x, y, groundKey(this.vars.season))
+          const tile = this.add.image(
+            x,
+            y,
+            groundVariantKey(this.vars.season, col, row),
+          )
           tile.setOrigin(0.5, 0.25)
           tile.setDepth(groundDepth(col, row))
           rowTiles.push(tile)
@@ -376,10 +394,14 @@ function makeParkScene(P: any) {
           if (y < ORIGIN_Y || y > this.view.y + this.view.h + pad) continue
           if (x < this.view.x - pad || x > this.view.x + this.view.w + pad)
             continue
-          const tile = this.add.image(x, y, groundKey(this.vars.season))
+          const tile = this.add.image(
+            x,
+            y,
+            groundVariantKey(this.vars.season, col, row),
+          )
           tile.setOrigin(0.5, 0.25)
           tile.setDepth(groundDepth(col, row))
-          this.decorativeTiles.push(tile)
+          this.decorativeTiles.push({ tile, col, row })
         }
       }
 
@@ -744,11 +766,15 @@ function makeParkScene(P: any) {
       }
 
       if (prev.season !== newVars.season) {
-        for (const row of this.groundTiles) {
-          for (const tile of row) tile.setTexture(groundKey(newVars.season))
+        for (let row = 0; row < GRID_SIZE; row++) {
+          for (let col = 0; col < GRID_SIZE; col++) {
+            this.groundTiles[row][col].setTexture(
+              groundVariantKey(newVars.season, col, row),
+            )
+          }
         }
-        for (const tile of this.decorativeTiles) {
-          tile.setTexture(groundKey(newVars.season))
+        for (const { tile, col, row } of this.decorativeTiles) {
+          tile.setTexture(groundVariantKey(newVars.season, col, row))
         }
         for (const tree of this.treeSprites) {
           tree.setTexture(treeKey(newVars.season))
