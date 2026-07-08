@@ -167,6 +167,15 @@ function isoToScreen(col: number, row: number): { x: number; y: number } {
   }
 }
 
+// Every ground tile (playable and decorative) shares one depth ordering by
+// grid row (col+row), so each tile's art "skirt" is covered by the tile
+// south of it regardless of which set the neighbor belongs to. A flat depth
+// split (playable above decorative) exposed the skirts as dark seams along
+// the playable grid's borders.
+function groundDepth(col: number, row: number): number {
+  return -1000 + (col + row) * 0.01
+}
+
 function isBuildingCell(col: number, row: number): boolean {
   return col === BUILDING_ANCHOR.col && row === BUILDING_ANCHOR.row
 }
@@ -344,7 +353,7 @@ function makeParkScene(P: any) {
           const { x, y } = isoToScreen(col, row)
           const tile = this.add.image(x, y, groundKey(this.vars.season))
           tile.setOrigin(0.5, 0.25)
-          tile.setDepth(-1000)
+          tile.setDepth(groundDepth(col, row))
           rowTiles.push(tile)
         }
         this.groundTiles.push(rowTiles)
@@ -367,7 +376,7 @@ function makeParkScene(P: any) {
             continue
           const tile = this.add.image(x, y, groundKey(this.vars.season))
           tile.setOrigin(0.5, 0.25)
-          tile.setDepth(-1001)
+          tile.setDepth(groundDepth(col, row))
           this.decorativeTiles.push(tile)
         }
       }
@@ -537,10 +546,10 @@ function makeParkScene(P: any) {
     drawSun() {
       const s = this.view.w / CANVAS_W
       const sx = this.skyX(560)
-      const sy = this.skyY(44)
+      const sy = this.skyY(54)
 
       this.bg.fillStyle(0xfff4a0, 0.22)
-      this.bg.fillCircle(sx, sy, 52 * s)
+      this.bg.fillCircle(sx, sy, 46 * s)
       this.bg.fillStyle(0xfff4a0, 0.4)
       this.bg.fillCircle(sx, sy, 38 * s)
 
