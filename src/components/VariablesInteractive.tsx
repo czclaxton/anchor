@@ -35,11 +35,23 @@ const VALID = {
 const NPC_COUNT_MIN = 1
 const NPC_COUNT_MAX = 8
 
-const LEGEND_ROWS: { name: string; values: string[] }[] = [
-  { name: 'season', values: VALID.season.map((s) => `"${s}"`) },
-  { name: 'weather', values: VALID.weather.map((s) => `"${s}"`) },
-  { name: 'time_of_day', values: VALID.time_of_day.map((s) => `"${s}"`) },
-  { name: 'npc_count', values: [`${NPC_COUNT_MIN}–${NPC_COUNT_MAX}`] },
+const LEGEND_ROWS: { name: string; values: string[]; copyable: boolean }[] = [
+  { name: 'season', values: VALID.season.map((s) => `"${s}"`), copyable: true },
+  {
+    name: 'weather',
+    values: VALID.weather.map((s) => `"${s}"`),
+    copyable: true,
+  },
+  {
+    name: 'time_of_day',
+    values: VALID.time_of_day.map((s) => `"${s}"`),
+    copyable: true,
+  },
+  {
+    name: 'npc_count',
+    values: [`${NPC_COUNT_MIN}–${NPC_COUNT_MAX}`],
+    copyable: false,
+  },
 ]
 
 const DEFAULT_VARS: SceneVars = {
@@ -1001,10 +1013,30 @@ export default function VariablesInteractive() {
 
   const [error, setError] = useState<string | null>(null)
   const [isRunning, setIsRunning] = useState(false)
+  const [copiedChip, setCopiedChip] = useState<string | null>(null)
+  const copyTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     preloadPyodide()
+    return () => {
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current)
+      }
+    }
   }, [])
+
+  async function handleCopyValue(chipKey: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value)
+    } catch {
+      // Clipboard unavailable (permissions/non-secure context) — the chip
+      // simply won't confirm; the student can still select the text manually.
+      return
+    }
+    setCopiedChip(chipKey)
+    if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current)
+    copyTimerRef.current = window.setTimeout(() => setCopiedChip(null), 1200)
+  }
 
   useEffect(() => {
     if (!editorContainerRef.current) return
@@ -1099,22 +1131,58 @@ export default function VariablesInteractive() {
       <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
         <div className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase">
           Available values
+          <span className="ml-2 font-normal normal-case text-gray-400">
+            click a value to copy it
+          </span>
         </div>
         <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2">
-          {LEGEND_ROWS.map(({ name, values }) => (
+          {LEGEND_ROWS.map(({ name, values, copyable }) => (
             <Fragment key={name}>
               <dt className="font-mono text-sm font-medium text-gray-900">
                 {name}
               </dt>
               <dd className="flex flex-wrap gap-1.5">
-                {values.map((v) => (
-                  <span
-                    key={v}
-                    className="rounded border border-gray-300 bg-white px-2 py-0.5 font-mono text-xs text-gray-700"
-                  >
-                    {v}
-                  </span>
-                ))}
+                {values.map((v) => {
+                  const chipKey = `${name}:${v}`
+                  if (!copyable) {
+                    return (
+                      <span
+                        key={v}
+                        className="rounded border border-gray-300 bg-white px-2 py-0.5 font-mono text-xs text-gray-700"
+                      >
+                        {v}
+                      </span>
+                    )
+                  }
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => handleCopyValue(chipKey, v)}
+                      title="Copy to clipboard"
+                      className="group inline-flex cursor-pointer items-center gap-1 rounded border border-gray-300 bg-white px-2 py-0.5 font-mono text-xs text-gray-700 transition-colors hover:border-blue-400 hover:text-blue-700"
+                    >
+                      {v}
+                      {copiedChip === chipKey ? (
+                        <span aria-hidden="true" className="text-green-600">
+                          ✓
+                        </span>
+                      ) : (
+                        <svg
+                          aria-hidden="true"
+                          className="h-3 w-3 text-gray-400 group-hover:text-blue-500"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                        >
+                          <rect x="5.5" y="5.5" width="8" height="8" rx="1" />
+                          <path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2" />
+                        </svg>
+                      )}
+                    </button>
+                  )
+                })}
               </dd>
             </Fragment>
           ))}
