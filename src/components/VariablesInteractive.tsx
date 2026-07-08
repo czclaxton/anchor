@@ -70,6 +70,16 @@ const SKY_DAY: Record<string, number> = {
   windy: 0x9eb8cc,
 }
 
+// Scene-wide ambient tint per weather — a gentle color wash over the whole
+// world (under the night dim) so lighting matches the mood instead of every
+// weather sharing identical flat daylight.
+const WEATHER_TINT: Record<string, { color: number; alpha: number }> = {
+  sunny: { color: 0xffd27f, alpha: 0.05 },
+  rainy: { color: 0x5a7286, alpha: 0.14 },
+  stormy: { color: 0x3a4654, alpha: 0.2 },
+  windy: { color: 0xa8bccc, alpha: 0.06 },
+}
+
 const STAR_POSITIONS: [number, number][] = [
   [55, 22],
   [130, 55],
@@ -377,6 +387,8 @@ function makeParkScene(P: any) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     nightOverlay: any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    weatherTintOverlay: any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     nightSkyLayer: any
     shootingStar: {
       x: number
@@ -518,6 +530,18 @@ function makeParkScene(P: any) {
         y: this.view.y + Math.random() * this.view.h,
         drift: (Math.random() - 0.5) * 1.5,
       }))
+      // Below the weather particles (1000) so rain/snow/leaves stay crisp
+      // on top of the tinted scene.
+      this.weatherTintOverlay = this.add.rectangle(
+        this.view.x + this.view.w / 2,
+        this.view.y + this.view.h / 2,
+        this.view.w,
+        this.view.h,
+        0xffffff,
+        0,
+      )
+      this.weatherTintOverlay.setDepth(999)
+
       this.nightOverlay = this.add.rectangle(
         this.view.x + this.view.w / 2,
         this.view.y + this.view.h / 2,
@@ -681,6 +705,8 @@ function makeParkScene(P: any) {
     }
 
     updateOverlays() {
+      const tint = WEATHER_TINT[this.vars.weather] ?? WEATHER_TINT.sunny
+      this.weatherTintOverlay.setFillStyle(tint.color, tint.alpha)
       this.nightOverlay.setAlpha(this.vars.time_of_day === 'night' ? 0.44 : 0)
       if (this.vars.time_of_day !== 'night') {
         this.nightSkyLayer.clear()
