@@ -18,6 +18,7 @@ Red: skip
 The approved design for this interactive was recorded in the T06 ticket Rationale during the Lesson 1 design session. Read that section before beginning implementation. Do not deviate from the approved design without a new developer discussion.
 
 Key decisions to confirm from T06 Rationale before building:
+
 - Tool: Phaser.js or React?
 - Mechanic: exact description of how the player interacts
 - Win condition: what does success look like?
@@ -52,10 +53,22 @@ Key decisions to confirm from T06 Rationale before building:
 
 > Append here (do not edit above) when behaviour or trade-offs change during implementation.
 
-**Design reference:** See T06 Rationale for approved design decisions.
+**Design reference:** Design locked in `.agents/delivery/phase-1/p1-06-design-session.md` — Variables interactive (Phaser.js park scene, 4 Python variables: season/weather/time_of_day/npc_count).
 
 Red first: skipped — interactive quality is human-reviewed and play-tested.
-Why this path: [filled after implementation]
-Alternative considered: [filled after implementation]
-Deferred: [filled after implementation]
-Contract note: Size is 5 points — interactive design and implementation with an unknown tool (decided in design session) warrants a larger estimate.
+
+Why this path: Phaser 4 (`phaser@4.2.0`) used for the scene. `client:only="react"` island prevents SSR. Phaser loaded via dynamic `import('phaser')` so the bundle is lazy-loaded only on the Variables lesson page. `runPythonExtractVars` added to `runPython.ts` to read Pyodide globals after user code runs. Scene factory pattern (`makeParkScene(P)`) extends `Phaser.Scene` after dynamic import resolves. Programmatic Graphics API used for all scene elements (sky, ground, trees, NPCs, weather), which loads instantly and doesn't require external assets.
+
+Alternative considered: Canvas 2D API (no Phaser) — rejected because the locked design specified Phaser.js. PixelLab pixel-art sprites — deferred; programmatic shapes communicate the concept clearly and the architecture supports replacing Graphics with sprites later.
+
+Deferred: True isometric (diamond tile) rendering — scene uses 2D side-view. PixelLab sprites for NPCs and trees. NPC pathfinding around obstacles.
+
+Contract note: Developer play-test required. Ticket closes only after developer explicitly approves the interactive.
+
+**Post-play-test rebuild:** Developer play-tested the original 2D programmatic-Graphics version and flagged three gaps: NPCs had no clothes, the scene was 2D side-view instead of isometric, and there were no buildings. Developer approved a rebuild using PixelLab-generated sprite assets in place of programmatic shapes, with full isometric depth including NPCs walking into/out of a building through a door cell (not just a static isometric-styled background).
+
+Assets generated via PixelLab MCP (Tier 1, high-fidelity settings approved via composited preview): 4 seasonal isometric ground tiles, 4 tree states (summer/fall/winter-bare-with-snow/spring-blossom), one building with a door, and 5 NPC states (summer/fall/winter/spring clothing + a rain/umbrella variant used for rainy/stormy weather regardless of season). Stored under `public/sprites/variables/`.
+
+Scene rewritten around an `isoToScreen(col, row)` grid projection with Y-based (`col + row`) depth sorting so NPCs correctly render behind/in front of the building and trees as they move. NPCs wander the grid via per-frame position tweening (not Phaser tweens, to allow continuous re-targeting) and have a small chance to walk into the building's door cell, fade out, wait, then reappear and resume wandering — this is the "enter/exit building" mechanic the developer asked for. Ground/tree textures swap on season change; NPC texture swaps on season or rainy/stormy weather; `npc_count` changes add or remove NPC sprites without rebuilding the whole scene.
+
+Deferred (unchanged from original scope): NPC pathfinding around obstacles — NPCs pick random grid cells as waypoints and walk straight-line paths between them; they do not avoid the building itself as an obstacle mid-path (only the door cell is a valid target that can result in entering).

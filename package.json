@@ -24,6 +24,7 @@
     "@tailwindcss/vite": "^4.1.0",
     "astro": "^5.9.0",
     "codemirror": "^6.0.2",
+    "phaser": "^4.2.0",
     "pyodide": "^314.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

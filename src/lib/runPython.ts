@@ -34,6 +34,48 @@ export function preloadPyodide(): void {
   getPyodide().catch(() => {})
 }
 
+export async function runPythonExtractVars(
+  code: string,
+  varNames: readonly string[],
+): Promise<{
+  stdout: string
+  vars: Record<string, unknown>
+  error: string | null
+}> {
+  const pyodide = await getPyodide()
+  let stdout = ''
+  let error: string | null = null
+
+  pyodide.setStdout({ batched: (text: string) => (stdout += text + '\n') })
+  pyodide.setStderr({ batched: (_text: string) => {} })
+
+  try {
+    await pyodide.runPythonAsync(code)
+  } catch (err) {
+    error = err instanceof Error ? err.message : String(err)
+    return { stdout, vars: {}, error }
+  }
+
+  const vars: Record<string, unknown> = {}
+  for (const name of varNames) {
+    try {
+      const val = pyodide.globals.get(name)
+      if (val !== undefined) {
+        vars[name] =
+          val !== null &&
+          typeof val === 'object' &&
+          typeof (val as { toJs?: () => unknown }).toJs === 'function'
+            ? (val as { toJs: () => unknown }).toJs()
+            : val
+      }
+    } catch {
+      // Variable not defined — leave absent
+    }
+  }
+
+  return { stdout, vars, error: null }
+}
+
 export async function runPython(
   code: string,
   onInput?: (prompt: string) => Promise<string>,
