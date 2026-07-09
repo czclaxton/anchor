@@ -114,11 +114,12 @@ function groundVariantKey(season: string, col: number, row: number): string {
   return `ground-${season}${suffix}`
 }
 
-// Ground texture for any cell: street rows get pavement (snow-covered in
+// Ground texture for any cell: street cells get pavement (snow-covered in
 // winter), everything else gets seasonal grass.
 function cellGroundKey(season: string, col: number, row: number): string {
-  if (row === ROAD_ROW) return season === 'winter' ? 'road-winter' : 'road'
-  if (SIDEWALK_ROWS.includes(row))
+  const sum = col + row
+  if (sum === ROAD_SUM) return season === 'winter' ? 'road-winter' : 'road'
+  if (SIDEWALK_SUMS.includes(sum))
     return season === 'winter' ? 'sidewalk-winter' : 'sidewalk'
   return groundVariantKey(season, col, row)
 }
@@ -240,30 +241,32 @@ interface BuildingDef {
   blocked: { c0: number; c1: number; r0: number; r1: number }
 }
 
-// Main-street town plan: an east-west street (road row + sidewalks) spans
-// the whole visible world. All buildings line the north side facing the
-// street — houses first, then the store, then the school — with front-yard
-// grass strips between their doors and the sidewalk. South of the street is
-// the park: clustered trees, props, and open lawn.
-const ROAD_ROW = 8
-const SIDEWALK_ROWS = [7, 9]
+// Main-street town plan. Cells sharing col+row project to the SAME screen
+// y, so the street runs along the iso anti-diagonal to appear horizontal —
+// a straight road across the frame with sidewalks above and below it. All
+// buildings sit on one anti-diagonal above the street (a level storefront
+// row: houses, store, school), each with a front-yard cell between its door
+// and the sidewalk. Below the street is the park: clustered trees, props,
+// open lawn.
+const ROAD_SUM = 16
+const SIDEWALK_SUMS = [15, 17]
 
 const BUILDINGS: BuildingDef[] = [
   {
     key: 'building',
-    anchor: { col: 1, row: 5 },
-    door: { col: 1, row: 6 },
-    inside: { col: 1, row: 5 },
+    anchor: { col: 2, row: 11 },
+    door: { col: 2, row: 12 },
+    inside: { col: 2, row: 11 },
     originY: 0.85,
-    blocked: { c0: 0, c1: 2, r0: 3, r1: 5 },
+    blocked: { c0: 1, c1: 3, r0: 9, r1: 11 },
   },
   {
     key: 'building-house2',
-    anchor: { col: 4, row: 5 },
-    door: { col: 4, row: 6 },
-    inside: { col: 4, row: 5 },
+    anchor: { col: 5, row: 8 },
+    door: { col: 5, row: 9 },
+    inside: { col: 5, row: 8 },
     originY: 0.85,
-    blocked: { c0: 3, c1: 5, r0: 3, r1: 5 },
+    blocked: { c0: 4, c1: 6, r0: 6, r1: 8 },
   },
   {
     key: 'building-store',
@@ -275,22 +278,22 @@ const BUILDINGS: BuildingDef[] = [
   },
   {
     key: 'building-school',
-    anchor: { col: 12, row: 5 },
-    door: { col: 12, row: 6 },
-    inside: { col: 12, row: 5 },
+    anchor: { col: 11, row: 2 },
+    door: { col: 11, row: 3 },
+    inside: { col: 11, row: 2 },
     originY: 0.82,
-    blocked: { c0: 10, c1: 14, r0: 1, r1: 5 },
+    blocked: { c0: 9, c1: 13, r0: 0, r1: 2 },
   },
 ]
 
 const buildingDepth = (b: BuildingDef) => b.anchor.col + b.anchor.row
 
-// Park south of the street.
+// Park below the street, trees spread across its width.
 const TREE_ANCHORS = [
-  { col: 2, row: 11 },
-  { col: 4, row: 13 },
-  { col: 6, row: 11 },
-  { col: 3, row: 14 },
+  { col: 5, row: 14 },
+  { col: 8, row: 12 },
+  { col: 11, row: 10 },
+  { col: 13, row: 8 },
 ]
 
 // The camera pins the grid's top vertex (the horizon) SKY_HEIGHT_PX from the
@@ -572,7 +575,8 @@ function makeParkScene(P: any) {
         // Keep building blocks (including doors), the street, and tree
         // cells clear.
         if (isBlockedCell(col, row)) return
-        if (row === ROAD_ROW || SIDEWALK_ROWS.includes(row)) return
+        const sum = col + row
+        if (sum === ROAD_SUM || SIDEWALK_SUMS.includes(sum)) return
         if (TREE_ANCHORS.some((t) => t.col === col && t.row === row)) return
         const pick = propForCell(col, row)
         if (!pick) return
