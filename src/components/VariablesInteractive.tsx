@@ -156,17 +156,16 @@ function propForCell(
   const dy = ((hash >> 21) % 9) - 4
   return { kind, dx, dy }
 }
-const npcKey = (season: string) => `npc-${season}`
-const NPC_RAIN_KEY = 'npc-rain'
 const BUILDING_KEY = 'building'
 
-const NPC_STATE_KEYS = [
-  'npc-summer',
-  'npc-fall',
-  'npc-winter',
-  'npc-spring',
-  NPC_RAIN_KEY,
-]
+// Four distinct people (design 0 is the original and keeps its 'npc' asset
+// prefix); each has all five seasonal/weather texture states. NPCs are
+// assigned designs round-robin at spawn so even small crowds mix.
+const NPC_DESIGN_PREFIXES = ['npc', 'npc2', 'npc3', 'npc4']
+const NPC_STATES = ['summer', 'fall', 'winter', 'spring', 'rain']
+const NPC_STATE_KEYS = NPC_DESIGN_PREFIXES.flatMap((prefix) =>
+  NPC_STATES.map((state) => `${prefix}-${state}`),
+)
 const NPC_WALK_FRAME_COUNT = 6
 type NpcFacing = 'south' | 'north' | 'east' | 'south-east' | 'north-east'
 const NPC_FACINGS: NpcFacing[] = [
@@ -275,6 +274,7 @@ interface Npc {
   sprite: any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   shadow: any
+  design: number
   col: number
   row: number
   targetCol: number
@@ -764,20 +764,22 @@ function makeParkScene(P: any) {
       }
     }
 
-    currentNpcTextureKey(): string {
+    npcTextureKey(design: number): string {
       const { weather, season } = this.vars
-      if (weather === 'rainy' || weather === 'stormy') return NPC_RAIN_KEY
-      return npcKey(season)
+      const state =
+        weather === 'rainy' || weather === 'stormy' ? 'rain' : season
+      return `${NPC_DESIGN_PREFIXES[design]}-${state}`
     }
 
     spawnNpcs(n: number) {
       for (let i = 0; i < n; i++) {
+        const design = this.npcs.length % NPC_DESIGN_PREFIXES.length
         const { col, row } = randomFreeCell()
         const { x, y } = isoToScreen(col, row)
-        const sprite = this.add.sprite(x, y, this.currentNpcTextureKey())
+        const sprite = this.add.sprite(x, y, this.npcTextureKey(design))
         sprite.setOrigin(0.5, 0.88)
         sprite.setDepth(col + row + 0.5)
-        sprite.play(npcWalkAnimKey(this.currentNpcTextureKey(), 'south'))
+        sprite.play(npcWalkAnimKey(this.npcTextureKey(design), 'south'))
 
         // Soft contact shadow at the feet; syncNpcShadow keeps it glued to
         // the sprite through walking and the enter/exit fade tweens.
@@ -786,6 +788,7 @@ function makeParkScene(P: any) {
         const npc: Npc = {
           sprite,
           shadow,
+          design,
           col,
           row,
           targetCol: col,
@@ -815,9 +818,11 @@ function makeParkScene(P: any) {
     }
 
     updateNpcTextures() {
-      const stateKey = this.currentNpcTextureKey()
       for (const npc of this.npcs) {
-        npc.sprite.play(npcWalkAnimKey(stateKey, npc.facing), true)
+        npc.sprite.play(
+          npcWalkAnimKey(this.npcTextureKey(npc.design), npc.facing),
+          true,
+        )
       }
     }
 
@@ -1032,7 +1037,10 @@ function makeParkScene(P: any) {
       npc.facing = facing
       npc.facingFlipped = flipped
       npc.sprite.setFlipX(flipped)
-      npc.sprite.play(npcWalkAnimKey(this.currentNpcTextureKey(), facing), true)
+      npc.sprite.play(
+        npcWalkAnimKey(this.npcTextureKey(npc.design), facing),
+        true,
+      )
     }
 
     tickRain(heavy: boolean) {
