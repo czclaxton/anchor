@@ -152,7 +152,9 @@ function propForCell(
   row: number,
 ): { kind: PropKind; dx: number; dy: number } | null {
   const hash = ((col * 40503) ^ (row * 63689) ^ ((col + row) * 52361)) >>> 0
-  if (hash % 100 >= 6) return null
+  // The park is planted noticeably denser than the rest of the map.
+  const density = col + row >= PARK_SUM_MIN ? 18 : 6
+  if (hash % 100 >= density) return null
   const kindRoll = (hash >> 8) % 100
   const kind: PropKind =
     kindRoll < 30
@@ -201,6 +203,8 @@ const ASSET_KEYS = [
   'road-winter',
   'sidewalk',
   'sidewalk-winter',
+  'park-fountain',
+  'park-bench',
   ...Object.values(PROP_KEYS),
   'tree-summer',
   'tree-fall',
@@ -257,7 +261,7 @@ const BUILDINGS: BuildingDef[] = [
     anchor: { col: 2, row: 11 },
     door: { col: 2, row: 12 },
     inside: { col: 2, row: 11 },
-    originY: 0.85,
+    originY: 0.86,
     blocked: { c0: 1, c1: 3, r0: 9, r1: 11 },
   },
   {
@@ -265,7 +269,7 @@ const BUILDINGS: BuildingDef[] = [
     anchor: { col: 5, row: 8 },
     door: { col: 5, row: 9 },
     inside: { col: 5, row: 8 },
-    originY: 0.85,
+    originY: 0.88,
     blocked: { c0: 4, c1: 6, r0: 6, r1: 8 },
   },
   {
@@ -273,7 +277,7 @@ const BUILDINGS: BuildingDef[] = [
     anchor: { col: 8, row: 5 },
     door: { col: 8, row: 6 },
     inside: { col: 8, row: 5 },
-    originY: 0.85,
+    originY: 0.86,
     blocked: { c0: 7, c1: 9, r0: 3, r1: 5 },
   },
   {
@@ -281,7 +285,7 @@ const BUILDINGS: BuildingDef[] = [
     anchor: { col: 11, row: 2 },
     door: { col: 11, row: 3 },
     inside: { col: 11, row: 2 },
-    originY: 0.82,
+    originY: 0.92,
     blocked: { c0: 9, c1: 13, r0: 0, r1: 2 },
   },
 ]
@@ -294,6 +298,16 @@ const TREE_ANCHORS = [
   { col: 8, row: 12 },
   { col: 11, row: 10 },
   { col: 13, row: 8 },
+]
+
+// Fixed park furniture: a fountain centerpiece flanked by benches, so the
+// park reads as a park rather than leftover lawn. The park zone (below the
+// south sidewalk) also gets a denser scatter of flowers/props.
+const PARK_SUM_MIN = 18
+const PARK_FEATURES = [
+  { key: 'park-fountain', col: 10, row: 11, originY: 0.78 },
+  { key: 'park-bench', col: 7, row: 13, originY: 0.8 },
+  { key: 'park-bench', col: 12, row: 10, originY: 0.8 },
 ]
 
 // The camera pins the grid's top vertex (the horizon) SKY_HEIGHT_PX from the
@@ -570,6 +584,13 @@ function makeParkScene(P: any) {
         return tree
       })
 
+      for (const feature of PARK_FEATURES) {
+        const { x, y } = isoToScreen(feature.col, feature.row)
+        const sprite = this.add.image(x, y, feature.key)
+        sprite.setOrigin(0.5, feature.originY)
+        sprite.setDepth(feature.col + feature.row)
+      }
+
       this.props = []
       const tryPlaceProp = (col: number, row: number) => {
         // Keep building blocks (including doors), the street, and tree
@@ -578,6 +599,7 @@ function makeParkScene(P: any) {
         const sum = col + row
         if (sum === ROAD_SUM || SIDEWALK_SUMS.includes(sum)) return
         if (TREE_ANCHORS.some((t) => t.col === col && t.row === row)) return
+        if (PARK_FEATURES.some((f) => f.col === col && f.row === row)) return
         const pick = propForCell(col, row)
         if (!pick) return
         const { x, y } = isoToScreen(col, row)
