@@ -156,8 +156,6 @@ function propForCell(
   const dy = ((hash >> 21) % 9) - 4
   return { kind, dx, dy }
 }
-const BUILDING_KEY = 'building'
-
 // Four distinct people (design 0 is the original and keeps its 'npc' asset
 // prefix); each has all five seasonal/weather texture states. NPCs are
 // assigned designs round-robin at spawn so even small crowds mix.
@@ -195,6 +193,9 @@ const ASSET_KEYS = [
   'tree-winter',
   'tree-spring',
   'building',
+  'building-school',
+  'building-store',
+  'building-house2',
   ...NPC_STATE_KEYS,
   ...NPC_STATE_KEYS.flatMap((stateKey) =>
     NPC_FACINGS.flatMap((facing) =>
@@ -211,15 +212,62 @@ const TILE_H_STEP = 12
 const ORIGIN_X = CANVAS_W / 2
 const ORIGIN_Y = 100
 
-// Building/door/tree layout keeps the original relative pattern, recentered
-// for the 16×16 field. Later phases (school, streets, cars) will place
-// additional content around this anchor.
-const BUILDING_ANCHOR = { col: 6, row: 6 }
-const DOOR_CELL = { col: 6, row: 7 }
+// Town layout on the 16×16 grid: four buildings around an open central
+// park. `anchor` is where the sprite sits (and its render depth cell),
+// `door` the walkable cell in front of the entrance, `inside` the cell
+// behind the door that entering NPCs walk toward (hidden behind the
+// building's front wall), and `blocked` the cell rectangle excluded from
+// wander targets and prop placement.
+interface BuildingDef {
+  key: string
+  anchor: { col: number; row: number }
+  door: { col: number; row: number }
+  inside: { col: number; row: number }
+  originY: number
+  blocked: { c0: number; c1: number; r0: number; r1: number }
+}
+
+const BUILDINGS: BuildingDef[] = [
+  {
+    key: 'building',
+    anchor: { col: 3, row: 3 },
+    door: { col: 3, row: 4 },
+    inside: { col: 3, row: 3 },
+    originY: 0.85,
+    blocked: { c0: 2, c1: 4, r0: 2, r1: 4 },
+  },
+  {
+    key: 'building-school',
+    anchor: { col: 11, row: 3 },
+    door: { col: 11, row: 5 },
+    inside: { col: 11, row: 4 },
+    originY: 0.82,
+    blocked: { c0: 9, c1: 13, r0: 1, r1: 5 },
+  },
+  {
+    key: 'building-store',
+    anchor: { col: 12, row: 11 },
+    door: { col: 12, row: 12 },
+    inside: { col: 12, row: 11 },
+    originY: 0.85,
+    blocked: { c0: 11, c1: 13, r0: 10, r1: 12 },
+  },
+  {
+    key: 'building-house2',
+    anchor: { col: 3, row: 11 },
+    door: { col: 3, row: 12 },
+    inside: { col: 3, row: 11 },
+    originY: 0.85,
+    blocked: { c0: 2, c1: 4, r0: 10, r1: 12 },
+  },
+]
+
+const buildingDepth = (b: BuildingDef) => b.anchor.col + b.anchor.row
+
 const TREE_ANCHORS = [
-  { col: 9, row: 5 },
-  { col: 10, row: 8 },
-  { col: 5, row: 9 },
+  { col: 8, row: 5 },
+  { col: 5, row: 8 },
+  { col: 10, row: 9 },
 ]
 
 // The camera pins the grid's top vertex (the horizon) SKY_HEIGHT_PX from the
@@ -253,8 +301,14 @@ function groundDepth(col: number, row: number): number {
   return -1000 + (col + row) * 0.01
 }
 
-function isBuildingCell(col: number, row: number): boolean {
-  return col === BUILDING_ANCHOR.col && row === BUILDING_ANCHOR.row
+function isBlockedCell(col: number, row: number): boolean {
+  return BUILDINGS.some(
+    (b) =>
+      col >= b.blocked.c0 &&
+      col <= b.blocked.c1 &&
+      row >= b.blocked.r0 &&
+      row <= b.blocked.r1,
+  )
 }
 
 function randomFreeCell(): { col: number; row: number } {
@@ -263,7 +317,7 @@ function randomFreeCell(): { col: number; row: number } {
   do {
     col = Math.floor(Math.random() * GRID_SIZE)
     row = Math.floor(Math.random() * GRID_SIZE)
-  } while (isBuildingCell(col, row))
+  } while (isBlockedCell(col, row))
   return { col, row }
 }
 
@@ -280,6 +334,7 @@ interface Npc {
   targetCol: number
   targetRow: number
   state: NpcMoveState
+  buildingIdx: number
   insideUntil: number
   speed: number
   facing: NpcFacing
@@ -410,7 +465,7 @@ function makeParkScene(P: any) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     props: Array<{ sprite: any; kind: PropKind }> = []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    buildingSprite: any
+    buildingSprites: any[] = []
     npcs: Npc[] = []
     drops: Array<{ x: number; y: number }> = []
 
@@ -473,10 +528,13 @@ function makeParkScene(P: any) {
         }
       }
 
-      const bPos = isoToScreen(BUILDING_ANCHOR.col, BUILDING_ANCHOR.row)
-      this.buildingSprite = this.add.image(bPos.x, bPos.y, BUILDING_KEY)
-      this.buildingSprite.setOrigin(0.5, 0.85)
-      this.buildingSprite.setDepth(BUILDING_ANCHOR.col + BUILDING_ANCHOR.row)
+      this.buildingSprites = BUILDINGS.map((b) => {
+        const pos = isoToScreen(b.anchor.col, b.anchor.row)
+        const sprite = this.add.image(pos.x, pos.y, b.key)
+        sprite.setOrigin(0.5, b.originY)
+        sprite.setDepth(buildingDepth(b))
+        return sprite
+      })
 
       this.treeSprites = TREE_ANCHORS.map(({ col, row }) => {
         const { x, y } = isoToScreen(col, row)
@@ -488,15 +546,8 @@ function makeParkScene(P: any) {
 
       this.props = []
       const tryPlaceProp = (col: number, row: number) => {
-        // Keep the building block (anchor ±1, which covers the door) and
-        // tree cells clear.
-        if (
-          col >= BUILDING_ANCHOR.col - 1 &&
-          col <= BUILDING_ANCHOR.col + 1 &&
-          row >= BUILDING_ANCHOR.row - 1 &&
-          row <= BUILDING_ANCHOR.row + 1
-        )
-          return
+        // Keep all building blocks (including doors) and tree cells clear.
+        if (isBlockedCell(col, row)) return
         if (TREE_ANCHORS.some((t) => t.col === col && t.row === row)) return
         const pick = propForCell(col, row)
         if (!pick) return
@@ -794,6 +845,7 @@ function makeParkScene(P: any) {
           targetCol: col,
           targetRow: row,
           state: 'wandering',
+          buildingIdx: -1,
           insideUntil: 0,
           speed: 0.5 + Math.random() * 0.4,
           facing: 'south',
@@ -810,7 +862,6 @@ function makeParkScene(P: any) {
       } else if (n < this.npcs.length) {
         const excess = this.npcs.splice(n)
         for (const npc of excess) {
-          this.tweens.killTweensOf(npc.sprite)
           npc.sprite.destroy()
           npc.shadow.destroy()
         }
@@ -828,7 +879,6 @@ function makeParkScene(P: any) {
 
     clearNpcs() {
       for (const npc of this.npcs) {
-        this.tweens.killTweensOf(npc.sprite)
         npc.sprite.destroy()
         npc.shadow.destroy()
       }
@@ -837,8 +887,9 @@ function makeParkScene(P: any) {
 
     pickNewWaypoint(npc: Npc) {
       if (Math.random() < 0.15) {
-        npc.targetCol = DOOR_CELL.col
-        npc.targetRow = DOOR_CELL.row
+        const b = BUILDINGS[Math.floor(Math.random() * BUILDINGS.length)]
+        npc.targetCol = b.door.col
+        npc.targetRow = b.door.row
         return
       }
       // Bounded retry to avoid NPCs piling onto the same target cell; falls
@@ -864,10 +915,25 @@ function makeParkScene(P: any) {
       npc.targetRow = row
     }
 
+    // While walking through a doorway (entering/exiting), the NPC renders
+    // behind the building sprite once past the midpoint between door and
+    // inside cells — the front wall occludes them, reading as physically
+    // going indoors instead of the old fade-out.
     placeNpc(npc: Npc) {
       const { x, y } = isoToScreen(npc.col, npc.row)
       npc.sprite.setPosition(x, y)
-      npc.sprite.setDepth(npc.col + npc.row + 0.5)
+      if (
+        (npc.state === 'entering' || npc.state === 'exiting') &&
+        npc.buildingIdx >= 0
+      ) {
+        const b = BUILDINGS[npc.buildingIdx]
+        const mid = (b.door.row + b.inside.row) / 2
+        npc.sprite.setDepth(
+          npc.row <= mid ? buildingDepth(b) - 0.2 : npc.col + npc.row + 0.5,
+        )
+      } else {
+        npc.sprite.setDepth(npc.col + npc.row + 0.5)
+      }
     }
 
     updateVars(newVars: SceneVars) {
@@ -967,27 +1033,17 @@ function makeParkScene(P: any) {
 
     updateNpc(npc: Npc, time: number, delta: number) {
       this.syncNpcShadow(npc)
-      if (npc.state === 'entering' || npc.state === 'exiting') return
 
       if (npc.state === 'inside') {
         if (time >= npc.insideUntil) {
-          npc.col = DOOR_CELL.col
-          npc.row = DOOR_CELL.row
+          const b = BUILDINGS[npc.buildingIdx]
+          npc.col = b.inside.col
+          npc.row = b.inside.row
+          npc.targetCol = b.door.col
+          npc.targetRow = b.door.row
           npc.state = 'exiting'
-          this.placeNpc(npc)
           npc.sprite.setVisible(true)
-          npc.sprite.setAlpha(0)
-          npc.sprite.setScale(0.4)
-          this.tweens.add({
-            targets: npc.sprite,
-            alpha: 1,
-            scale: 1,
-            duration: 400,
-            onComplete: () => {
-              npc.state = 'wandering'
-              this.pickNewWaypoint(npc)
-            },
-          })
+          this.placeNpc(npc)
         }
         return
       }
@@ -1002,20 +1058,28 @@ function makeParkScene(P: any) {
         npc.row = npc.targetRow
         this.placeNpc(npc)
 
-        const atDoor = npc.col === DOOR_CELL.col && npc.row === DOOR_CELL.row
-        if (atDoor && npc.state === 'wandering' && Math.random() < 0.35) {
+        if (npc.state === 'entering') {
+          npc.sprite.setVisible(false)
+          npc.state = 'inside'
+          npc.insideUntil = time + 3000 + Math.random() * 4000
+          return
+        }
+        if (npc.state === 'exiting') {
+          npc.state = 'wandering'
+          this.placeNpc(npc)
+          this.pickNewWaypoint(npc)
+          return
+        }
+
+        const doorIdx = BUILDINGS.findIndex(
+          (b) => npc.col === b.door.col && npc.row === b.door.row,
+        )
+        if (doorIdx >= 0 && Math.random() < 0.35) {
+          const b = BUILDINGS[doorIdx]
+          npc.buildingIdx = doorIdx
           npc.state = 'entering'
-          this.tweens.add({
-            targets: npc.sprite,
-            alpha: 0,
-            scale: 0.4,
-            duration: 400,
-            onComplete: () => {
-              npc.sprite.setVisible(false)
-              npc.state = 'inside'
-              npc.insideUntil = time + 3000 + Math.random() * 4000
-            },
-          })
+          npc.targetCol = b.inside.col
+          npc.targetRow = b.inside.row
         } else {
           this.pickNewWaypoint(npc)
         }
