@@ -114,6 +114,15 @@ function groundVariantKey(season: string, col: number, row: number): string {
   return `ground-${season}${suffix}`
 }
 
+// Ground texture for any cell: street rows get pavement (snow-covered in
+// winter), everything else gets seasonal grass.
+function cellGroundKey(season: string, col: number, row: number): string {
+  if (row === ROAD_ROW) return season === 'winter' ? 'road-winter' : 'road'
+  if (SIDEWALK_ROWS.includes(row))
+    return season === 'winter' ? 'sidewalk-winter' : 'sidewalk'
+  return groundVariantKey(season, col, row)
+}
+
 const treeKey = (season: string) => `tree-${season}`
 
 // Scattered ground props. Kind is fixed per cell (stable hash); which kinds
@@ -187,6 +196,10 @@ const ASSET_KEYS = [
     `ground-${s}-v1`,
     `ground-${s}-v2`,
   ]),
+  'road',
+  'road-winter',
+  'sidewalk',
+  'sidewalk-winter',
   ...Object.values(PROP_KEYS),
   'tree-summer',
   'tree-fall',
@@ -227,47 +240,57 @@ interface BuildingDef {
   blocked: { c0: number; c1: number; r0: number; r1: number }
 }
 
+// Main-street town plan: an east-west street (road row + sidewalks) spans
+// the whole visible world. All buildings line the north side facing the
+// street — houses first, then the store, then the school — with front-yard
+// grass strips between their doors and the sidewalk. South of the street is
+// the park: clustered trees, props, and open lawn.
+const ROAD_ROW = 8
+const SIDEWALK_ROWS = [7, 9]
+
 const BUILDINGS: BuildingDef[] = [
   {
     key: 'building',
-    anchor: { col: 3, row: 3 },
-    door: { col: 3, row: 4 },
-    inside: { col: 3, row: 3 },
+    anchor: { col: 1, row: 5 },
+    door: { col: 1, row: 6 },
+    inside: { col: 1, row: 5 },
     originY: 0.85,
-    blocked: { c0: 2, c1: 4, r0: 2, r1: 4 },
-  },
-  {
-    key: 'building-school',
-    anchor: { col: 11, row: 3 },
-    door: { col: 11, row: 5 },
-    inside: { col: 11, row: 4 },
-    originY: 0.82,
-    blocked: { c0: 9, c1: 13, r0: 1, r1: 5 },
-  },
-  {
-    key: 'building-store',
-    anchor: { col: 12, row: 11 },
-    door: { col: 12, row: 12 },
-    inside: { col: 12, row: 11 },
-    originY: 0.85,
-    blocked: { c0: 11, c1: 13, r0: 10, r1: 12 },
+    blocked: { c0: 0, c1: 2, r0: 3, r1: 5 },
   },
   {
     key: 'building-house2',
-    anchor: { col: 3, row: 11 },
-    door: { col: 3, row: 12 },
-    inside: { col: 3, row: 11 },
+    anchor: { col: 4, row: 5 },
+    door: { col: 4, row: 6 },
+    inside: { col: 4, row: 5 },
     originY: 0.85,
-    blocked: { c0: 2, c1: 4, r0: 10, r1: 12 },
+    blocked: { c0: 3, c1: 5, r0: 3, r1: 5 },
+  },
+  {
+    key: 'building-store',
+    anchor: { col: 8, row: 5 },
+    door: { col: 8, row: 6 },
+    inside: { col: 8, row: 5 },
+    originY: 0.85,
+    blocked: { c0: 7, c1: 9, r0: 3, r1: 5 },
+  },
+  {
+    key: 'building-school',
+    anchor: { col: 12, row: 5 },
+    door: { col: 12, row: 6 },
+    inside: { col: 12, row: 5 },
+    originY: 0.82,
+    blocked: { c0: 10, c1: 14, r0: 1, r1: 5 },
   },
 ]
 
 const buildingDepth = (b: BuildingDef) => b.anchor.col + b.anchor.row
 
+// Park south of the street.
 const TREE_ANCHORS = [
-  { col: 8, row: 5 },
-  { col: 5, row: 8 },
-  { col: 10, row: 9 },
+  { col: 2, row: 11 },
+  { col: 4, row: 13 },
+  { col: 6, row: 11 },
+  { col: 3, row: 14 },
 ]
 
 // The camera pins the grid's top vertex (the horizon) SKY_HEIGHT_PX from the
@@ -493,7 +516,7 @@ function makeParkScene(P: any) {
           const tile = this.add.image(
             x,
             y,
-            groundVariantKey(this.vars.season, col, row),
+            cellGroundKey(this.vars.season, col, row),
           )
           tile.setOrigin(0.5, 0.25)
           tile.setDepth(groundDepth(col, row))
@@ -520,7 +543,7 @@ function makeParkScene(P: any) {
           const tile = this.add.image(
             x,
             y,
-            groundVariantKey(this.vars.season, col, row),
+            cellGroundKey(this.vars.season, col, row),
           )
           tile.setOrigin(0.5, 0.25)
           tile.setDepth(groundDepth(col, row))
@@ -546,8 +569,10 @@ function makeParkScene(P: any) {
 
       this.props = []
       const tryPlaceProp = (col: number, row: number) => {
-        // Keep all building blocks (including doors) and tree cells clear.
+        // Keep building blocks (including doors), the street, and tree
+        // cells clear.
         if (isBlockedCell(col, row)) return
+        if (row === ROAD_ROW || SIDEWALK_ROWS.includes(row)) return
         if (TREE_ANCHORS.some((t) => t.col === col && t.row === row)) return
         const pick = propForCell(col, row)
         if (!pick) return
@@ -952,12 +977,12 @@ function makeParkScene(P: any) {
         for (let row = 0; row < GRID_SIZE; row++) {
           for (let col = 0; col < GRID_SIZE; col++) {
             this.groundTiles[row][col].setTexture(
-              groundVariantKey(newVars.season, col, row),
+              cellGroundKey(newVars.season, col, row),
             )
           }
         }
         for (const { tile, col, row } of this.decorativeTiles) {
-          tile.setTexture(groundVariantKey(newVars.season, col, row))
+          tile.setTexture(cellGroundKey(newVars.season, col, row))
         }
         for (const tree of this.treeSprites) {
           tree.setTexture(treeKey(newVars.season))
